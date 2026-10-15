@@ -7,6 +7,18 @@ Envoyer et recevoir des messages MQTT vers le broker EMQX de Saillance
 
 ## 1. Installer
 
+### Avec l'Arduino IDE
+
+1. **Outils > Gestionnaire de cartes** : installer « esp32 » (Espressif). Testé avec la version 2.0.17.
+2. **Outils > Gérer les bibliothèques** : installer « ArduinoJson » (version 7 ou plus).
+3. Installer Saillance : télécharger le dépôt en `.zip`, puis **Croquis > Inclure une bibliothèque > Ajouter la bibliothèque .ZIP**
+   (ou copier le dossier dans `Documents/Arduino/libraries/`).
+4. **Outils > Type de carte** : « ESP32 Dev Module », ou « OLIMEX ESP32-POE-ISO » / « OLIMEX ESP32-POE ».
+5. **Outils > Core Debug Level > Error** : pour que les erreurs `log_e()` remontent aussi vers MQTT.
+6. Ouvrir un exemple : **Fichier > Exemples > Saillance**.
+
+### Avec PlatformIO
+
 Dans le `platformio.ini` de votre projet :
 
 ```ini
@@ -20,7 +32,7 @@ lib_deps =
     https://github.com/VOTRE-COMPTE/saillance-mqtt.git
 ```
 
-Les dossiers `examples/` contiennent 4 projets complets, prêts à ouvrir dans PlatformIO.
+Les dossiers `examples/` contiennent 4 exemples complets (Arduino IDE et PlatformIO).
 
 ## 2. Premier programme
 
