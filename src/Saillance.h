@@ -136,7 +136,7 @@ class SaillanceClass {
   // --- Outils ---------------------------------------------------------------
   bool connected() const { return mqttConnected_; }          // connecté au broker ?
   const char* username() const { return username_; }
-  // Envoyer ses propres erreurs vers /saillance/sys/<username>/error
+  // Envoyer ses propres erreurs vers saillance/sys/<username>/error
   void reportError(const char* source, const char* message, Severity sv = Severity::Error,
                    ErrorCode code = ErrorCode::User);
 

@@ -110,10 +110,10 @@ La bibliothèque raconte ce qu'elle fait, en français. Exemple avec l'exemple 1
 
 ```
 [Saillance] appareil : esp32_exemple1
-[Saillance] topic erreurs : /saillance/sys/esp32_exemple1/error
-[Saillance] topic infos   : /saillance/sys/esp32_exemple1/infos (toutes les 5 s)
+[Saillance] topic erreurs : saillance/sys/esp32_exemple1/error
+[Saillance] topic infos   : saillance/sys/esp32_exemple1/infos (toutes les 5 s)
 [Saillance] WiFi : connexion a "NomDuWifi"...
-[Saillance] envoi    -> /saillance/musiquejam/lumiere/bande1/couleur  [r,g,b]  max 20 Hz, continu
+[Saillance] envoi    -> saillance/musiquejam/lumiere/bande1/couleur  [r,g,b]  max 20 Hz, continu
 [Saillance] WiFi connecte, IP 10.0.21.57
 [Saillance] MQTT : connexion a ws://10.0.21.210:8083/mqtt en tant que "esp32_exemple1"...
 [Saillance] MQTT connecte
@@ -153,7 +153,7 @@ Exemple : `Board::Esp32PoeIso` + `"controlbouton"` → **`esp32poeiso_controlbou
 ## 5. Construire un topic
 
 Le topic est `saillance / zone / module / composante / propriété`, par exemple
-`/saillance/musiquejam/lumiere/bande1/couleur`. « saillance » est toujours ajouté pour vous.
+`saillance/musiquejam/lumiere/bande1/couleur`. « saillance » est toujours ajouté pour vous.
 Deux façons de le construire :
 
 ```cpp
@@ -278,8 +278,8 @@ Ce que l'on peut faire avec un `Input` ou un `Message` :
 
 | Topic | Quand | Contenu |
 |---|---|---|
-| `/saillance/sys/<username>/infos` | toutes les 5 s (et dès la connexion) | `v ts seq fps df gpu cpu ac performMode` |
-| `/saillance/sys/<username>/error` | à chaque erreur | `v ts seq src msg sv t` |
+| `saillance/sys/<username>/infos` | toutes les 5 s (et dès la connexion) | `v ts seq fps df gpu cpu ac performMode` |
+| `saillance/sys/<username>/error` | à chaque erreur | `v ts seq src msg sv t` |
 
 ### `infos`
 
@@ -350,7 +350,7 @@ Saillance.reportError("capteur", "valeur douteuse", Severity::Warning);
 | `FloatOut non valide` | la création a échoué : lisez le message juste au-dessus |
 
 Pour voir ce que reçoit le broker, un client comme [MQTTX](https://mqttx.app) connecté en WebSocket
-à `ws://10.0.21.210:8083/mqtt` et abonné à `/saillance/#` suffit.
+à `ws://10.0.21.210:8083/mqtt` et abonné à `saillance/#` suffit.
 
 ---
 
@@ -361,7 +361,7 @@ Tout se règle dans `src/SaillanceConfig.h` :
 | Réglage | Rôle |
 |---|---|
 | `SAILLANCE_BROKER_HOST`, `_PORT`, `_PATH` | adresse du broker (`/mqtt` est le chemin WebSocket par défaut d'EMQX) |
-| `SAILLANCE_TOPIC_LEADING_SLASH` | `1` : `/saillance/...`, `0` : `saillance/...` |
+| `SAILLANCE_TOPIC_LEADING_SLASH` | `1` : `/saillance/...`, `0` : `saillance/...` (défaut) |
 | `SAILLANCE_ZONES` | liste des zones |
 | `SAILLANCE_NAME_MAX`, `_SEGMENT_MAX`, `_KEY_MAX`, `_MAX_HZ`… | les limites |
 | `SAILLANCE_INFOS_PERIOD_MS` | période de `infos` |

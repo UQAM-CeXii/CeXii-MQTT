@@ -36,7 +36,7 @@ const char* zoneName(Zone z);
 
 // "esp32poeiso_controlbouton" (nom mis en minuscules). Retourne false si invalide.
 bool buildUsername(Board b, const char* deviceName, char* out, size_t cap);
-// "/saillance/sys/<username>/<leaf>"
+// "saillance/sys/<username>/<leaf>"
 bool buildSysTopic(const char* username, const char* leaf, char* out, size_t cap);
 
 // Un topic complet et validé : saillance/zone/module/composante/propriete

@@ -44,13 +44,13 @@ void test_username_limits() {
 void test_topic_ok() {
   Topic t = makeTopic(Zone::MusiqueJam, "Lumiere", "bande1", "couleur");
   TEST_ASSERT_TRUE(t.valid());
-  TEST_ASSERT_EQUAL_STRING("/saillance/musiquejam/lumiere/bande1/couleur", t.c_str());
+  TEST_ASSERT_EQUAL_STRING("saillance/musiquejam/lumiere/bande1/couleur", t.c_str());
 }
 
 void test_topic_steps() {
   Topic t = TopicNeedsModule(Zone::Screen).module("fumee").component("machine").property("debit");
   TEST_ASSERT_TRUE(t.valid());
-  TEST_ASSERT_EQUAL_STRING("/saillance/screen/fumee/machine/debit", t.c_str());
+  TEST_ASSERT_EQUAL_STRING("saillance/screen/fumee/machine/debit", t.c_str());
 }
 
 void test_topic_invalid() {
@@ -75,7 +75,7 @@ void test_zone_names_are_valid_segments() {
 void test_sys_topic() {
   char t[96];
   TEST_ASSERT_TRUE(buildSysTopic("esp32_x", "infos", t, sizeof(t)));
-  TEST_ASSERT_EQUAL_STRING("/saillance/sys/esp32_x/infos", t);
+  TEST_ASSERT_EQUAL_STRING("saillance/sys/esp32_x/infos", t);
 }
 
 // --- keys -------------------------------------------------------------------

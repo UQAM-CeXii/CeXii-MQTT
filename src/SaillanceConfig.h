@@ -12,7 +12,7 @@
 // --- Topics -----------------------------------------------------------------
 #define SAILLANCE_PROJECT "saillance"
 // 1 => "/saillance/sys/..."   0 => "saillance/sys/..."
-#define SAILLANCE_TOPIC_LEADING_SLASH 1
+#define SAILLANCE_TOPIC_LEADING_SLASH 0
 
 // --- Zones (liste des choix pour le 2e niveau du topic) ---------------------
 // À MODIFIER : une ligne par zone  X(NomDansLeCode, "texte-dans-le-topic")
