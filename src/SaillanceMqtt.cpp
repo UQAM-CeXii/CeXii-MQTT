@@ -66,7 +66,9 @@ void SaillanceClass::syncMqtt_() {
 
 bool SaillanceClass::publish_(const char* topic, const char* data, size_t len, int qos) {
   if (!client_ || !mqttConnected_) return false;
-  return esp_mqtt_client_enqueue(client_, topic, data, (int)len, qos, 0, true) >= 0;
+  // Envoi direct. Surtout pas esp_mqtt_client_enqueue(store=true) : la file interne d'esp-mqtt ne
+  // libère qu'environ 1 message par seconde et jette les messages après 30 s.
+  return esp_mqtt_client_publish(client_, topic, data, (int)len, qos, 0) >= 0;
 }
 
 void SaillanceClass::subscribeAll_() {

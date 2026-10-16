@@ -141,7 +141,10 @@ void SaillanceClass::publishErrors_() {
     lastErrMs_ = now;
 
     size_t n = buildErrorPayload(payload_, sizeof(payload_), it.ts, errorSeq_, it.src, it.msg, it.sv, it.code);
-    if (n && publish_(errorTopic_, payload_, n, 1)) errorSeq_++;
+    if (n && publish_(errorTopic_, payload_, n, 1)) {
+      if (errorSeq_ == 0) say("premiere erreur envoyee sur %s", errorTopic_);
+      errorSeq_++;
+    }
   }
 }
 
@@ -184,9 +187,12 @@ void SaillanceClass::publishInfos_(uint32_t now) {
   // gpu : l'ESP32 n'a pas de GPU -> 0
   size_t n = buildInfosPayload(payload_, sizeof(payload_), timestampMs(), infosSeq_, fps, droppedFrames_, 0, cpu);
   if (n && publish_(infosTopic_, payload_, n, 0)) {
+    if (infosSeq_ == 0) say("premier message envoye sur %s", infosTopic_);
     infosSeq_++;
     droppedFrames_ = 0;
     infosDue_ = false;
+  } else {
+    say("echec d'envoi sur %s", infosTopic_);
   }
 }
 
