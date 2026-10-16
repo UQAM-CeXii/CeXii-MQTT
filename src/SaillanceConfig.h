@@ -18,8 +18,10 @@
 // À MODIFIER : une ligne par zone  X(NomDansLeCode, "texte-dans-le-topic")
 // Le texte doit faire 12 caractères max (lettres, chiffres, _ ou -).
 #define SAILLANCE_ZONES(X)         \
-  X(MusiqueJam, "musiquejam")      \
-  X(Screen, "screen")
+  X(Mana, "mana")                  \
+  X(Ecrans, "ecrans")              \
+  X(Globale, "globale")            \
+  X(Regie, "regie")
 
 // --- Limites ----------------------------------------------------------------
 #define SAILLANCE_NAME_MAX 24      // nom d'appareil choisi par l'utilisateur

@@ -56,7 +56,7 @@ class Topic {
 Topic makeTopic(Zone zone, const char* module, const char* component, const char* property);
 
 // Construction guidée, étape par étape (l'éditeur propose la suite à chaque point) :
-//   Saillance.zone(Zone::MusiqueJam).module("lumiere").component("bande1").property("couleur")
+//   Saillance.zone(Zone::Mana).module("lumiere").component("bande1").property("couleur")
 class TopicNeedsProperty {
  public:
   Topic property(const char* name) const;

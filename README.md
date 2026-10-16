@@ -72,7 +72,7 @@ void setup() {
   Saillance.beginWifi(Board::Esp32, "controlbouton", "NomDuWifi", "MotDePasse");
 
   // Où envoyer : zone / module / composante / propriété
-  Topic topic = Saillance.topic(Zone::MusiqueJam, "lumiere", "bande1", "couleur");
+  Topic topic = Saillance.topic(Zone::Mana, "lumiere", "bande1", "couleur");
 
   // Les valeurs envoyées, chacune avec sa clé ; 20 envois/s max ; en continu
   couleur = Saillance.floatOut(topic, {"r", "g", "b"}, 20, SendMode::Continuous);
@@ -113,7 +113,7 @@ La bibliothèque raconte ce qu'elle fait, en français. Exemple avec l'exemple 1
 [Saillance] topic erreurs : saillance/sys/esp32_exemple1/error
 [Saillance] topic infos   : saillance/sys/esp32_exemple1/infos (toutes les 5 s)
 [Saillance] WiFi : connexion a "NomDuWifi"...
-[Saillance] envoi    -> saillance/musiquejam/lumiere/bande1/couleur  [r,g,b]  max 20 Hz, continu
+[Saillance] envoi    -> saillance/mana/lumiere/bande1/couleur  [r,g,b]  max 20 Hz, continu
 [Saillance] WiFi connecte, IP 10.0.21.57
 [Saillance] MQTT : connexion a ws://10.0.21.210:8083/mqtt en tant que "esp32_exemple1"...
 [Saillance] MQTT connecte
@@ -153,20 +153,20 @@ Exemple : `Board::Esp32PoeIso` + `"controlbouton"` → **`esp32poeiso_controlbou
 ## 5. Construire un topic
 
 Le topic est `saillance / zone / module / composante / propriété`, par exemple
-`saillance/musiquejam/lumiere/bande1/couleur`. « saillance » est toujours ajouté pour vous.
+`saillance/mana/lumiere/bande1/couleur`. « saillance » est toujours ajouté pour vous.
 Deux façons de le construire :
 
 ```cpp
 // En une ligne
-Topic t = Saillance.topic(Zone::MusiqueJam, "lumiere", "bande1", "couleur");
+Topic t = Saillance.topic(Zone::Mana, "lumiere", "bande1", "couleur");
 
 // Guidé : l'éditeur propose l'étape suivante après chaque point
-Topic t = Saillance.zone(Zone::MusiqueJam).module("lumiere").component("bande1").property("couleur");
+Topic t = Saillance.zone(Zone::Mana).module("lumiere").component("bande1").property("couleur");
 ```
 
 | Niveau | Valeur | Règles |
 |---|---|---|
-| zone | à choisir dans la liste : `Zone::MusiqueJam`, `Zone::Screen` | pas de texte libre |
+| zone | à choisir dans la liste : `Zone::Mana`, `Zone::Ecrans`, `Zone::Globale`, `Zone::Regie` | pas de texte libre |
 | module | texte libre | 12 caractères max |
 | composante | texte libre | 12 caractères max |
 | propriété | texte libre | 12 caractères max |
@@ -370,9 +370,11 @@ Tout se règle dans `src/SaillanceConfig.h` :
 
 ```cpp
 #define SAILLANCE_ZONES(X)         \
-  X(MusiqueJam, "musiquejam")      \
-  X(Screen, "screen")              \
-  X(Lumiere, "lumiere")             // ← ajoutée, utilisable avec Zone::Lumiere
+  X(Mana, "mana")                  \
+  X(Ecrans, "ecrans")              \
+  X(Globale, "globale")            \
+  X(Regie, "regie")                \
+  X(Salle, "salle")                 // ← ajoutée, utilisable avec Zone::Salle
 ```
 
 Le texte doit respecter les règles des textes libres (12 caractères max, lettres/chiffres/`_`/`-`).

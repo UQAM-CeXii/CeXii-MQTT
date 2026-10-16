@@ -42,27 +42,27 @@ void test_username_limits() {
 
 // --- topics -----------------------------------------------------------------
 void test_topic_ok() {
-  Topic t = makeTopic(Zone::MusiqueJam, "Lumiere", "bande1", "couleur");
+  Topic t = makeTopic(Zone::Mana, "Lumiere", "bande1", "couleur");
   TEST_ASSERT_TRUE(t.valid());
-  TEST_ASSERT_EQUAL_STRING("saillance/musiquejam/lumiere/bande1/couleur", t.c_str());
+  TEST_ASSERT_EQUAL_STRING("saillance/mana/lumiere/bande1/couleur", t.c_str());
 }
 
 void test_topic_steps() {
-  Topic t = TopicNeedsModule(Zone::Screen).module("fumee").component("machine").property("debit");
+  Topic t = TopicNeedsModule(Zone::Ecrans).module("fumee").component("machine").property("debit");
   TEST_ASSERT_TRUE(t.valid());
-  TEST_ASSERT_EQUAL_STRING("saillance/screen/fumee/machine/debit", t.c_str());
+  TEST_ASSERT_EQUAL_STRING("saillance/ecrans/fumee/machine/debit", t.c_str());
 }
 
 void test_topic_invalid() {
-  TEST_ASSERT_FALSE(makeTopic(Zone::MusiqueJam, "treize_chars_", "a", "b").valid());  // 13
-  TEST_ASSERT_TRUE(makeTopic(Zone::MusiqueJam, "douze_chars_", "a", "b").valid());    // 12
-  TEST_ASSERT_FALSE(makeTopic(Zone::MusiqueJam, "a/b", "a", "b").valid());
-  TEST_ASSERT_FALSE(makeTopic(Zone::MusiqueJam, "a", "#", "b").valid());
-  TEST_ASSERT_FALSE(makeTopic(Zone::MusiqueJam, "a", "b", "+").valid());
-  TEST_ASSERT_FALSE(makeTopic(Zone::MusiqueJam, "a", "", "b").valid());
-  TEST_ASSERT_FALSE(makeTopic(Zone::MusiqueJam, nullptr, "a", "b").valid());
+  TEST_ASSERT_FALSE(makeTopic(Zone::Mana, "treize_chars_", "a", "b").valid());  // 13
+  TEST_ASSERT_TRUE(makeTopic(Zone::Mana, "douze_chars_", "a", "b").valid());    // 12
+  TEST_ASSERT_FALSE(makeTopic(Zone::Mana, "a/b", "a", "b").valid());
+  TEST_ASSERT_FALSE(makeTopic(Zone::Mana, "a", "#", "b").valid());
+  TEST_ASSERT_FALSE(makeTopic(Zone::Mana, "a", "b", "+").valid());
+  TEST_ASSERT_FALSE(makeTopic(Zone::Mana, "a", "", "b").valid());
+  TEST_ASSERT_FALSE(makeTopic(Zone::Mana, nullptr, "a", "b").valid());
   TEST_ASSERT_FALSE(makeTopic(Zone::Count_, "a", "b", "c").valid());
-  Topic bad = TopicNeedsModule(Zone::MusiqueJam).module("a b").component("c").property("d");
+  Topic bad = TopicNeedsModule(Zone::Mana).module("a b").component("c").property("d");
   TEST_ASSERT_FALSE(bad.valid());
   TEST_ASSERT_TRUE(g_issues.size() >= 8);
 }
@@ -90,7 +90,7 @@ void test_keys() {
 // --- envoi float ------------------------------------------------------------
 void test_float_payload() {
   FloatChannel c;
-  c.configure(makeTopic(Zone::MusiqueJam, "a", "b", "c"), 30, SendMode::Event);
+  c.configure(makeTopic(Zone::Mana, "a", "b", "c"), 30, SendMode::Event);
   TEST_ASSERT_TRUE(c.addKey("r"));
   TEST_ASSERT_TRUE(c.addKey("g"));
   TEST_ASSERT_FALSE(c.addKey("r"));  // doublon
@@ -107,7 +107,7 @@ void test_float_payload() {
 
 void test_float_clamp_and_unknown_key() {
   FloatChannel c;
-  c.configure(makeTopic(Zone::MusiqueJam, "a", "b", "c"), 10, SendMode::Event);
+  c.configure(makeTopic(Zone::Mana, "a", "b", "c"), 10, SendMode::Event);
   c.addKey("r");
   c.set("r", 3.0f);
   TEST_ASSERT_EQUAL_FLOAT(1.0f, c.values[0]);
@@ -120,7 +120,7 @@ void test_float_clamp_and_unknown_key() {
 
 void test_text_payload() {
   TextChannel c;
-  c.configure(makeTopic(Zone::MusiqueJam, "a", "b", "c"), 5, SendMode::Event);
+  c.configure(makeTopic(Zone::Mana, "a", "b", "c"), 5, SendMode::Event);
   c.set("say \"hi\"\n");
   char buf[SAILLANCE_PAYLOAD_MAX];
   TEST_ASSERT_TRUE(c.build(buf, sizeof(buf), 42) > 0);
@@ -129,7 +129,7 @@ void test_text_payload() {
 
 void test_buffer_too_small() {
   FloatChannel c;
-  c.configure(makeTopic(Zone::MusiqueJam, "a", "b", "c"), 10, SendMode::Event);
+  c.configure(makeTopic(Zone::Mana, "a", "b", "c"), 10, SendMode::Event);
   c.addKey("r");
   char tiny[16];
   TEST_ASSERT_EQUAL(0, c.build(tiny, sizeof(tiny), 1));
@@ -139,7 +139,7 @@ void test_buffer_too_small() {
 // --- cadence ----------------------------------------------------------------
 void test_rate_event_mode() {
   FloatChannel c;
-  c.configure(makeTopic(Zone::MusiqueJam, "a", "b", "c"), 10, SendMode::Event);  // 100 ms
+  c.configure(makeTopic(Zone::Mana, "a", "b", "c"), 10, SendMode::Event);  // 100 ms
   c.addKey("r");
   TEST_ASSERT_FALSE(c.due(0));  // rien de changé
   c.set("r", 0.5f);
@@ -156,7 +156,7 @@ void test_rate_event_mode() {
 
 void test_rate_continuous_mode() {
   FloatChannel c;
-  c.configure(makeTopic(Zone::MusiqueJam, "a", "b", "c"), 30, SendMode::Continuous);
+  c.configure(makeTopic(Zone::Mana, "a", "b", "c"), 30, SendMode::Continuous);
   TEST_ASSERT_EQUAL(34, c.intervalMs);  // 30 Hz arrondi vers le haut : jamais > 30 Hz
   c.addKey("r");
   int sent = 0;
@@ -171,9 +171,9 @@ void test_rate_continuous_mode() {
 
 void test_rate_limits_clamped() {
   OutChannel c;
-  c.configure(makeTopic(Zone::MusiqueJam, "a", "b", "c"), 0, SendMode::Continuous);
+  c.configure(makeTopic(Zone::Mana, "a", "b", "c"), 0, SendMode::Continuous);
   TEST_ASSERT_EQUAL(1000, c.intervalMs);
-  c.configure(makeTopic(Zone::MusiqueJam, "a", "b", "c"), 200, SendMode::Continuous);
+  c.configure(makeTopic(Zone::Mana, "a", "b", "c"), 200, SendMode::Continuous);
   TEST_ASSERT_EQUAL(34, c.intervalMs);
   TEST_ASSERT_EQUAL(2, g_issues.size());
 }
@@ -207,7 +207,7 @@ void test_parse_text_and_garbage() {
 
 void test_roundtrip() {
   FloatChannel c;
-  c.configure(makeTopic(Zone::MusiqueJam, "a", "b", "c"), 30, SendMode::Event);
+  c.configure(makeTopic(Zone::Mana, "a", "b", "c"), 30, SendMode::Event);
   c.addKey("hue");
   c.addKey("sat");
   c.set("hue", 0.123f);
