@@ -11,7 +11,7 @@
 //    void setup() {
 //      Serial.begin(115200);
 //      Saillance.beginWifi(Board::Esp32, "controlbouton", "MonWifi", "MotDePasse");
-//      Topic t = Saillance.topic(Zone::Salon, "lumiere", "bande1", "couleur");
+//      Topic t = Saillance.topic(Zone::MusiqueJam, "lumiere", "bande1", "couleur");
 //      lumiere = Saillance.floatOut(t, {"r", "g", "b"});
 //    }
 //
@@ -115,7 +115,7 @@ class SaillanceClass {
   void update();
 
   // --- 3. Construire un topic (guidé) ---------------------------------------
-  //   Saillance.zone(Zone::Salon).module("lumiere").component("bande1").property("couleur")
+  //   Saillance.zone(Zone::MusiqueJam).module("lumiere").component("bande1").property("couleur")
   TopicNeedsModule zone(Zone z) { return TopicNeedsModule(z); }
   //   ou en une ligne :
   Topic topic(Zone z, const char* module, const char* component, const char* property) {

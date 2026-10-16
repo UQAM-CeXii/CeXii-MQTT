@@ -48,7 +48,7 @@ void setup() {
   Saillance.beginWifi(Board::Esp32, "controlbouton", "NomDuWifi", "MotDePasse");
 
   // Où envoyer : zone / module / composante / propriété
-  Topic topic = Saillance.topic(Zone::Salon, "lumiere", "bande1", "couleur");
+  Topic topic = Saillance.topic(Zone::MusiqueJam, "lumiere", "bande1", "couleur");
 
   // Les valeurs envoyées, chacune avec sa clé
   couleur = Saillance.floatOut(topic, {"r", "g", "b"}, 20, SendMode::Continuous);
@@ -92,10 +92,10 @@ Le topic est `saillance / zone / module / composante / propriété`. Deux façon
 
 ```cpp
 // En une ligne
-Topic t = Saillance.topic(Zone::Salon, "lumiere", "bande1", "couleur");
+Topic t = Saillance.topic(Zone::MusiqueJam, "lumiere", "bande1", "couleur");
 
 // Guidé : l'éditeur propose l'étape suivante après chaque point
-Topic t = Saillance.zone(Zone::Salon).module("lumiere").component("bande1").property("couleur");
+Topic t = Saillance.zone(Zone::MusiqueJam).module("lumiere").component("bande1").property("couleur");
 ```
 
 * `Zone` : on choisit dans une liste (voir `SAILLANCE_ZONES` dans `src/SaillanceConfig.h`).

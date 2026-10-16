@@ -122,6 +122,8 @@ bool SaillanceClass::begin_(Board board, const char* deviceName, Link link) {
 
   startSystem_();  // capture des erreurs, mesure du CPU, cause du dernier redémarrage
   say("appareil : %s", username_);
+  say("topic erreurs : %s", errorTopic_);
+  say("topic infos   : %s (toutes les %d s)", infosTopic_, SAILLANCE_INFOS_PERIOD_MS / 1000);
   if (!startNetwork_()) return false;
 
   started_ = true;
@@ -156,6 +158,13 @@ FloatOut SaillanceClass::floatOut(const Topic& topic, std::initializer_list<cons
     }
   }
   floatOuts_.push_back(ch);
+  char keyList[SAILLANCE_MAX_KEYS * (SAILLANCE_KEY_MAX + 1) + 1] = {0};
+  for (uint8_t i = 0; i < ch->count; i++) {
+    if (i) strcat(keyList, ",");
+    strcat(keyList, ch->keys[i]);
+  }
+  say("envoi    -> %s  [%s]  max %u Hz, %s", topic.c_str(), keyList, (unsigned)ch->maxHz,
+      mode == SendMode::Continuous ? "continu" : "sur evenement");
   return FloatOut(ch);
 }
 
@@ -167,6 +176,8 @@ TextOut SaillanceClass::textOut(const Topic& topic, uint8_t maxHz, SendMode mode
   TextChannel* ch = new TextChannel();
   ch->configure(topic, maxHz, mode);
   textOuts_.push_back(ch);
+  say("envoi    -> %s  [texte]  max %u Hz, %s", topic.c_str(), (unsigned)ch->maxHz,
+      mode == SendMode::Continuous ? "continu" : "sur evenement");
   return TextOut(ch);
 }
 
@@ -178,6 +189,7 @@ Input SaillanceClass::input(const Topic& topic) {
   InputChannel* ch = new InputChannel();
   ch->topic = topic;
   inputs_.push_back(ch);
+  say("reception <- %s", topic.c_str());
   return Input(ch);
 }
 

@@ -13,7 +13,7 @@ void setup() {
   // Username MQTT : "esp32poeiso_controlbouton"
   Saillance.beginEthernet(Board::Esp32PoeIso, "controlbouton");
 
-  Topic topic = Saillance.topic(Zone::Entree, "interrupteur", "bouton1", "etat");
+  Topic topic = Saillance.topic(Zone::Screen, "interrupteur", "bouton1", "etat");
   bouton = Saillance.floatOut(topic, {"on"}, 30, SendMode::Event);
 }
 

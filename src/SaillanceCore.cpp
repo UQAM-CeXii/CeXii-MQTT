@@ -310,6 +310,7 @@ void OutChannel::configure(const Topic& t, uint8_t maxHz, SendMode m) {
                 SAILLANCE_MIN_HZ, SAILLANCE_MAX_HZ, (unsigned)fixed);
     maxHz = fixed;
   }
+  this->maxHz = maxHz;
   intervalMs = (1000u + maxHz - 1u) / maxHz;  // arrondi vers le haut : jamais plus vite que demandé
 }
 

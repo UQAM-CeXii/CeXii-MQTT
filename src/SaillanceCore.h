@@ -56,7 +56,7 @@ class Topic {
 Topic makeTopic(Zone zone, const char* module, const char* component, const char* property);
 
 // Construction guidée, étape par étape (l'éditeur propose la suite à chaque point) :
-//   Saillance.zone(Zone::Salon).module("lumiere").component("bande1").property("couleur")
+//   Saillance.zone(Zone::MusiqueJam).module("lumiere").component("bande1").property("couleur")
 class TopicNeedsProperty {
  public:
   Topic property(const char* name) const;
@@ -142,6 +142,7 @@ struct OutChannel {
   Topic topic;
   SendMode mode = SendMode::Event;
   uint32_t intervalMs = 34;
+  uint8_t maxHz = 30;
   uint32_t lastSentMs = 0;
   uint32_t seq = 0;
   bool sentOnce = false;

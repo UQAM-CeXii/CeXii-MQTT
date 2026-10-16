@@ -9,7 +9,7 @@ void setup() {
   Serial.begin(115200);
   Saillance.beginWifi(Board::Esp32, "exemple4", "NomDuWifi", "MotDePasse");
 
-  Topic topic = Saillance.topic(Zone::Scene, "affichage", "ecran1", "texte");
+  Topic topic = Saillance.topic(Zone::Screen, "affichage", "ecran1", "texte");
   message = Saillance.textOut(topic, 5, SendMode::Event);  // 5 fois par seconde max
 }
 

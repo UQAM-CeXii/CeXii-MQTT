@@ -11,11 +11,11 @@ void setup() {
   Saillance.beginWifi(Board::Esp32, "exemple3", "NomDuWifi", "MotDePasse");
 
   // Façon 1 : garder le "tuyau" et lire avec get()
-  Topic t1 = Saillance.topic(Zone::Salon, "lumiere", "plafonnier", "niveau");
+  Topic t1 = Saillance.topic(Zone::MusiqueJam, "lumiere", "plafonnier", "niveau");
   luminosite = Saillance.input(t1);
 
   // Façon 2 : une fonction appelée automatiquement à chaque message reçu
-  Topic t2 = Saillance.topic(Zone::Scene, "fumee", "machine", "debit");
+  Topic t2 = Saillance.topic(Zone::Screen, "fumee", "machine", "debit");
   Saillance.input(t2, [](const Message& m) {
     Serial.printf("debit de fumee recu : %.2f\n", m.get("debit"));
     for (uint8_t i = 0; i < m.count; i++)  // ou tout lire, clé par clé
