@@ -60,8 +60,13 @@ void SaillanceClass::syncMqtt_() {
   else if (!netUp_ && mqttStarted_)
     stopMqtt_();
 
-  if (!mqttConnected_)
+  if (!mqttConnected_) {
     for (InputChannel* in : inputs_) in->subscribed = false;
+    pingSubscribed_ = false;
+    pingEverSent_ = false;  // un nouveau ping part dès la reconnexion
+    pingAwaiting_ = false;
+    latMs_ = -1;
+  }
 }
 
 bool SaillanceClass::publish_(const char* topic, const char* data, size_t len, int qos) {
@@ -72,6 +77,7 @@ bool SaillanceClass::publish_(const char* topic, const char* data, size_t len, i
 }
 
 void SaillanceClass::subscribeAll_() {
+  if (!pingSubscribed_ && esp_mqtt_client_subscribe(client_, pingTopic_, 0) >= 0) pingSubscribed_ = true;
   for (InputChannel* in : inputs_) {
     if (in->subscribed) continue;
     if (esp_mqtt_client_subscribe(client_, in->topic.c_str(), 0) >= 0) {
@@ -88,7 +94,9 @@ void SaillanceClass::dispatchIncoming_() {
   Incoming it;
   for (int budget = 8; budget > 0 && xQueueReceive((QueueHandle_t)incomingQueue_, &it, 0) == pdTRUE; budget--) {
     Message m;
-    if (!parseMessage(it.payload, it.len, m)) {
+    bool ok = parseMessage(it.big ? it.big : it.payload, it.len, m);
+    if (it.big) free(it.big);
+    if (!ok) {
       reportIssue(Severity::Warning, ErrorCode::ApiBadMessage, "input", "message illisible sur %s", it.topic);
       continue;
     }
@@ -98,13 +106,19 @@ void SaillanceClass::dispatchIncoming_() {
 }
 
 void SaillanceClass::onMqttEvent_(void*, const char*, int32_t id, void* data) {
+  const uint32_t arrivalUs = micros();  // pour mesurer la latence du ping le plus précisément possible
   SaillanceClass& s = Saillance;
   esp_mqtt_event_handle_t ev = (esp_mqtt_event_handle_t)data;
   static bool failureShown = false;
+  // Réassemblage des gros messages (tables) reçus en plusieurs morceaux
+  static char* asmBuf = nullptr;
+  static char asmTopic[SAILLANCE_TOPIC_MAX + 1];
+  static int asmTotal = 0;
 
   switch ((esp_mqtt_event_id_t)id) {
     case MQTT_EVENT_CONNECTED:
       s.mqttConnected_ = true;
+      s.mqttConnections_++;
       s.infosDue_ = true;
       failureShown = false;
       s.say("MQTT connecte");
@@ -113,21 +127,80 @@ void SaillanceClass::onMqttEvent_(void*, const char*, int32_t id, void* data) {
     case MQTT_EVENT_DISCONNECTED:
       if (s.mqttConnected_) s.say("MQTT deconnecte, nouvelle tentative...");
       s.mqttConnected_ = false;
+      if (asmBuf) {
+        free(asmBuf);
+        asmBuf = nullptr;
+      }
       break;
 
     case MQTT_EVENT_DATA: {
-      if (ev->current_data_offset != 0) break;  // suite d'un gros message déjà rejeté
-      if (ev->topic_len <= 0 || ev->topic_len > SAILLANCE_TOPIC_MAX || ev->total_data_len > SAILLANCE_PAYLOAD_MAX) {
-        s.reportError("input", "message recu trop gros, ignore", Severity::Warning, ErrorCode::ApiBadMessage);
+      if (ev->current_data_offset != 0) {  // suite d'un message en morceaux
+        if (!asmBuf) break;                // message rejeté ou mémoire manquante
+        if (ev->current_data_offset + ev->data_len <= asmTotal) memcpy(asmBuf + ev->current_data_offset, ev->data, ev->data_len);
+        if (ev->current_data_offset + ev->data_len >= asmTotal) {
+          Incoming it;
+          memset(&it, 0, sizeof(it));
+          it.len = asmTotal;
+          it.big = asmBuf;
+          asmBuf[asmTotal] = '\0';
+          strcpy(it.topic, asmTopic);
+          asmBuf = nullptr;
+          if (!s.incomingQueue_ || xQueueSend((QueueHandle_t)s.incomingQueue_, &it, 0) != pdTRUE) free(it.big);
+        }
         break;
       }
+
+      if (asmBuf) {  // un message précédent n'a jamais été terminé
+        free(asmBuf);
+        asmBuf = nullptr;
+      }
+      if (ev->topic_len <= 0 || ev->topic_len > SAILLANCE_TOPIC_MAX || ev->total_data_len > SAILLANCE_TABLE_MAX_BYTES) {
+        s.reportError("input", "message recu trop gros ou topic invalide, ignore", Severity::Warning, ErrorCode::ApiBadMessage);
+        break;
+      }
+
+      // Retour de notre propre ping : on note l'heure tout de suite
+      if ((size_t)ev->topic_len == strlen(s.pingTopic_) && memcmp(ev->topic, s.pingTopic_, ev->topic_len) == 0) {
+        char tmp[96];
+        int n = ev->data_len < (int)sizeof(tmp) - 1 ? ev->data_len : (int)sizeof(tmp) - 1;
+        memcpy(tmp, ev->data, n);
+        tmp[n] = '\0';
+        const char* p = strstr(tmp, "\"seq\":");
+        if (p) {
+          s.pingRecvSeq_ = (uint32_t)strtoul(p + 6, nullptr, 10);
+          s.pingRecvUs_ = arrivalUs;
+          s.pingReply_ = true;
+        }
+        break;
+      }
+
       Incoming it;
-      it.len = (uint16_t)ev->data_len;
+      memset(&it, 0, sizeof(it));
       memcpy(it.topic, ev->topic, ev->topic_len);
       it.topic[ev->topic_len] = '\0';
-      memcpy(it.payload, ev->data, ev->data_len);
-      it.payload[ev->data_len] = '\0';
-      if (s.incomingQueue_) xQueueSend((QueueHandle_t)s.incomingQueue_, &it, 0);
+      it.len = ev->total_data_len;
+
+      if (ev->data_len == ev->total_data_len && ev->total_data_len <= SAILLANCE_PAYLOAD_MAX) {
+        memcpy(it.payload, ev->data, ev->data_len);  // petit message : tout est dans la file
+        it.payload[ev->data_len] = '\0';
+        if (s.incomingQueue_) xQueueSend((QueueHandle_t)s.incomingQueue_, &it, 0);
+      } else {
+        char* buf = (char*)malloc(ev->total_data_len + 1);  // gros message : copie sur le tas
+        if (!buf) {
+          s.reportError("input", "memoire insuffisante pour un gros message", Severity::Warning, ErrorCode::ApiBadMessage);
+          break;
+        }
+        memcpy(buf, ev->data, ev->data_len);
+        if (ev->data_len == ev->total_data_len) {
+          buf[ev->total_data_len] = '\0';
+          it.big = buf;
+          if (!s.incomingQueue_ || xQueueSend((QueueHandle_t)s.incomingQueue_, &it, 0) != pdTRUE) free(buf);
+        } else {  // il reste des morceaux à venir
+          asmBuf = buf;
+          asmTotal = ev->total_data_len;
+          strcpy(asmTopic, it.topic);
+        }
+      }
       break;
     }
 

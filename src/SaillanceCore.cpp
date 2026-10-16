@@ -230,6 +230,14 @@ void JsonWriter::num(float v) {
   comma_ = true;
 }
 
+void JsonWriter::fixed1(float v) {
+  sep();
+  char tmp[24];
+  snprintf(tmp, sizeof(tmp), "%.1f", (double)v);
+  raw(tmp);
+  comma_ = true;
+}
+
 // ============================================================================
 //  Message reçu
 // ============================================================================
@@ -245,7 +253,45 @@ float Message::get(const char* k, float fallback) const {
   return fallback;
 }
 
+const char* Message::cell(size_t y, size_t x) const {
+  if (y >= rows.size() || x >= rows[y].size()) return "";
+  return rows[y][x].c_str();
+}
+
+float Message::cellFloat(size_t y, size_t x, float fallback) const {
+  const char* c = cell(y, x);
+  if (!c[0]) return fallback;
+  char* end = nullptr;
+  float v = strtof(c, &end);
+  return end == c ? fallback : v;
+}
+
 static float clamp01(float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); }
+
+// {"val":[["a","0.1"],["b","0.5"]],"f":"table"}  -> max 64 rangées x 16 colonnes
+static bool parseTable(JsonVariantConst val, Message& out) {
+  JsonArrayConst rows = val.as<JsonArrayConst>();
+  if (rows.isNull() || rows.size() > SAILLANCE_TABLE_MAX_ROWS) return false;
+  for (JsonVariantConst r : rows) {
+    JsonArrayConst row = r.as<JsonArrayConst>();
+    if (row.isNull() || row.size() > SAILLANCE_TABLE_MAX_COLS) return false;
+    std::vector<std::string> cells;
+    for (JsonVariantConst c : row) {
+      if (c.is<const char*>()) {
+        cells.push_back(c.as<const char*>());
+      } else if (c.is<float>()) {  // tolérant : un nombre est converti en texte
+        std::string txt;
+        serializeJson(c, txt);
+        cells.push_back(txt);
+      } else {
+        return false;
+      }
+    }
+    out.rows.push_back(std::move(cells));
+  }
+  out.isTable = true;
+  return true;
+}
 
 bool parseMessage(const char* payload, size_t len, Message& out) {
   JsonDocument doc;
@@ -259,6 +305,7 @@ bool parseMessage(const char* payload, size_t len, Message& out) {
 
   JsonVariantConst val = doc["val"];
   const char* f = doc["f"] | "";
+  if (strcmp(f, "table") == 0) return parseTable(val, out);
   bool text = strcmp(f, "string") == 0 || (f[0] == '\0' && val.is<const char*>());
 
   if (text) {
@@ -442,6 +489,76 @@ size_t TextChannel::build(char* buf, size_t cap, uint64_t ts) {
   return n;
 }
 
+void TableChannel::clear() {
+  if (!rows.empty()) dirty = true;
+  rows.clear();
+}
+
+bool TableChannel::setCell(uint16_t y, uint16_t x, const char* text) {
+  if (!text) text = "";
+  if (y >= SAILLANCE_TABLE_MAX_ROWS || x >= SAILLANCE_TABLE_MAX_COLS) {
+    if (!warnedLimit) {
+      warnedLimit = true;
+      reportIssue(Severity::Warning, ErrorCode::ApiBadValue, "table",
+                  "case (%u,%u) hors limites (max %d rangees x %d colonnes)", (unsigned)y, (unsigned)x,
+                  SAILLANCE_TABLE_MAX_ROWS, SAILLANCE_TABLE_MAX_COLS);
+    }
+    return false;
+  }
+  if (rows.size() <= y) {
+    rows.resize(y + 1);
+    dirty = true;
+  }
+  std::vector<std::string>& row = rows[y];
+  if (row.size() <= x) {
+    row.resize(x + 1);
+    dirty = true;
+  }
+  if (row[x] != text) {
+    row[x] = text;
+    dirty = true;
+  }
+  return true;
+}
+
+bool TableChannel::addRow(const char* const* cells, size_t n) {
+  if (rows.size() >= SAILLANCE_TABLE_MAX_ROWS || n > SAILLANCE_TABLE_MAX_COLS) {
+    if (!warnedLimit) {
+      warnedLimit = true;
+      reportIssue(Severity::Warning, ErrorCode::ApiBadValue, "table",
+                  "rangee refusee (max %d rangees x %d colonnes)", SAILLANCE_TABLE_MAX_ROWS,
+                  SAILLANCE_TABLE_MAX_COLS);
+    }
+    return false;
+  }
+  std::vector<std::string> row;
+  for (size_t i = 0; i < n; i++) row.push_back(cells[i] ? cells[i] : "");
+  rows.push_back(std::move(row));
+  dirty = true;
+  return true;
+}
+
+size_t TableChannel::build(char* buf, size_t cap, uint64_t ts) {
+  JsonWriter w(buf, cap);
+  w.beginObject();
+  w.key("v"); w.i32(SAILLANCE_FORMAT_VERSION);
+  w.key("ts"); w.u64(ts);
+  w.key("seq"); w.u64(seq);
+  w.key("val");
+  w.beginArray();
+  for (const std::vector<std::string>& row : rows) {
+    w.beginArray();
+    for (const std::string& c : row) w.str(c.c_str());
+    w.endArray();
+  }
+  w.endArray();
+  w.key("f"); w.str("table");
+  w.endObject();
+  size_t n = w.finish();
+  if (n) seq++;
+  return n;
+}
+
 void InputChannel::deliver(const Message& m) {
   last = m;
   hasData = true;
@@ -467,19 +584,36 @@ size_t buildErrorPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, const
   return w.finish();
 }
 
-size_t buildInfosPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, uint32_t fps,
-                         uint32_t droppedFrames, uint32_t gpu, uint32_t cpu) {
+size_t buildInfosPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, const InfosData& d) {
   JsonWriter w(buf, cap);
   w.beginObject();
   w.key("v"); w.i32(SAILLANCE_FORMAT_VERSION);
   w.key("ts"); w.u64(ts);
   w.key("seq"); w.u64(seq);
-  w.key("fps"); w.u64(fps);
-  w.key("df"); w.u64(droppedFrames);
-  w.key("gpu"); w.u64(gpu);
-  w.key("cpu"); w.u64(cpu);
-  w.key("ac"); w.i32(1);
-  w.key("performMode"); w.i32(1);
+  w.key("app"); w.str(d.app ? d.app : "");
+  // -1 = non disponible (écrit "-1", pas "-1.0")
+  w.key("fps"); if (d.fps < 0) w.i32(-1); else w.fixed1(d.fps);
+  w.key("fpsmin"); if (d.fpsMin < 0) w.i32(-1); else w.fixed1(d.fpsMin);
+  w.key("msmax"); if (d.msMax < 0) w.i32(-1); else w.fixed1(d.msMax);
+  w.key("df"); w.u64(d.droppedFrames);
+  w.key("cpu"); w.i32(d.cpu);
+  w.key("ram"); w.i32(d.ram);
+  w.key("gpu"); w.i32(d.gpu);
+  w.key("gpumem"); w.i32(d.gpuMem);
+  w.key("ac"); w.i32(d.ac);
+  w.key("performModeL"); w.i32(d.performMode);
+  w.key("lat"); w.i32(d.lat);
+  w.key("rc"); w.u64(d.reconnects);
+  w.endObject();
+  return w.finish();
+}
+
+size_t buildPingPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq) {
+  JsonWriter w(buf, cap);
+  w.beginObject();
+  w.key("v"); w.i32(SAILLANCE_FORMAT_VERSION);
+  w.key("ts"); w.u64(ts);
+  w.key("seq"); w.u64(seq);
   w.endObject();
   return w.finish();
 }

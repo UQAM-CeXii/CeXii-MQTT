@@ -8,6 +8,8 @@
 #include <stdint.h>
 
 #include <functional>
+#include <string>
+#include <vector>
 
 #include "SaillanceConfig.h"
 #include "SaillanceTypes.h"
@@ -56,7 +58,7 @@ class Topic {
 Topic makeTopic(Zone zone, const char* module, const char* component, const char* property);
 
 // Construction guidée, étape par étape (l'éditeur propose la suite à chaque point) :
-//   Saillance.zone(Zone::Mana).module("lumiere").component("bande1").property("couleur")
+//   Saillance.zone(Zone::Jam).module("lumiere").component("bande1").property("couleur")
 class TopicNeedsProperty {
  public:
   Topic property(const char* name) const;
@@ -103,6 +105,7 @@ class JsonWriter {
   void u64(uint64_t v);
   void i32(int32_t v);
   void num(float v);
+  void fixed1(float v);  // une décimale : 59.8
   // Retourne la longueur écrite, ou 0 si le buffer était trop petit.
   size_t finish() const { return overflow_ ? 0 : len_; }
 
@@ -130,6 +133,14 @@ struct Message {
   float get(const char* key, float fallback = 0.0f) const;
   float value(uint8_t i) const { return i < count ? values[i] : 0.0f; }
   const char* key(uint8_t i) const { return i < count ? keys[i] : ""; }
+
+  // Table : rows[y][x], tout est du texte
+  bool isTable = false;
+  std::vector<std::vector<std::string>> rows;
+  size_t rowCount() const { return rows.size(); }
+  size_t colCount(size_t y) const { return y < rows.size() ? rows[y].size() : 0; }
+  const char* cell(size_t y, size_t x) const;                       // "" si la case n'existe pas
+  float cellFloat(size_t y, size_t x, float fallback = 0.0f) const;  // la case lue comme un nombre
 };
 
 // Décode {"v":..,"ts":..,"seq":..,"val":..,"f":"float|string","label":[..]}
@@ -172,6 +183,17 @@ struct TextChannel : OutChannel {
   size_t build(char* buf, size_t cap, uint64_t ts);
 };
 
+struct TableChannel : OutChannel {
+  std::vector<std::vector<std::string>> rows;
+  bool warnedLimit = false;
+
+  void clear();
+  bool setCell(uint16_t y, uint16_t x, const char* text);  // agrandit la table au besoin
+  bool addRow(const char* const* cells, size_t n);
+  // Retourne 0 si le message dépasse `cap` (8 Ko max pour une table)
+  size_t build(char* buf, size_t cap, uint64_t ts);
+};
+
 // --- Canal de réception -----------------------------------------------------
 struct InputChannel {
   Topic topic;
@@ -187,7 +209,18 @@ struct InputChannel {
 // --- Messages système -------------------------------------------------------
 size_t buildErrorPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, const char* src,
                          const char* msg, Severity sv, ErrorCode code);
-size_t buildInfosPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, uint32_t fps,
-                         uint32_t droppedFrames, uint32_t gpu, uint32_t cpu);
+// -1 = non disponible (champs numériques)
+struct InfosData {
+  const char* app = "";
+  float fps = -1, fpsMin = -1, msMax = -1;
+  uint32_t droppedFrames = 0;
+  int cpu = -1, ram = -1, gpu = -1, gpuMem = -1;
+  int ac = 1, performMode = 1;
+  int lat = -1;
+  uint32_t reconnects = 0;
+};
+size_t buildInfosPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, const InfosData& d);
+// Enveloppe seule : {"v":1,"ts":..,"seq":..}
+size_t buildPingPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq);
 
 }  // namespace saillance

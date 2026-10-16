@@ -171,10 +171,28 @@ void SaillanceClass::publishInfos_(uint32_t now) {
 
   uint32_t elapsed = now - lastInfosMs_;
   if (elapsed == 0) elapsed = 1;
-  uint32_t fps = (uint32_t)((uint64_t)frames_ * 1000ULL / elapsed);
-  uint32_t cpu = (uint32_t)(sampleCpu_() + 0.5f);
+
+  InfosData d;
+  d.app = appName_;
+  d.fps = (float)frames_ * 1000.0f / (float)elapsed;
+  if (gapCount_ > 0 && maxGapUs_ > 0) {  // l'image (tour de loop) la plus lente
+    d.msMax = (float)maxGapUs_ / 1000.0f;
+    d.fpsMin = 1000.0f / d.msMax;
+  }
+  d.droppedFrames = droppedFrames_;
+  d.cpu = (int)(sampleCpu_() + 0.5f);
+  size_t heapTotal = ESP.getHeapSize();
+  if (heapTotal) d.ram = (int)((float)(heapTotal - ESP.getFreeHeap()) * 100.0f / (float)heapTotal + 0.5f);
+  // gpu, gpumem : pas de carte graphique sur un ESP32 -> -1
+  d.ac = 1;
+  d.performMode = 1;
+  d.lat = latMs_;
+  d.reconnects = mqttConnections_ > 0 ? mqttConnections_ - 1 : 0;
+
   lastInfosMs_ = now;
   frames_ = 0;
+  maxGapUs_ = 0;
+  gapCount_ = 0;
 
   if (ESP.getFreeHeap() < SAILLANCE_LOW_HEAP_BYTES && (lowHeapMs_ == 0 || now - lowHeapMs_ > 60000)) {
     lowHeapMs_ = now ? now : 1;
@@ -184,8 +202,7 @@ void SaillanceClass::publishInfos_(uint32_t now) {
   }
 
   if (!mqttConnected_) return;
-  // gpu : l'ESP32 n'a pas de GPU -> 0
-  size_t n = buildInfosPayload(payload_, sizeof(payload_), timestampMs(), infosSeq_, fps, droppedFrames_, 0, cpu);
+  size_t n = buildInfosPayload(payload_, sizeof(payload_), timestampMs(), infosSeq_, d);
   if (n && publish_(infosTopic_, payload_, n, 0)) {
     if (infosSeq_ == 0) say("premier message envoye sur %s", infosTopic_);
     infosSeq_++;
@@ -193,6 +210,39 @@ void SaillanceClass::publishInfos_(uint32_t now) {
     infosDue_ = false;
   } else {
     say("echec d'envoi sur %s", infosTopic_);
+  }
+}
+
+// Ping : on s'envoie un message sur /ping ; le broker nous le renvoie (on y est abonné).
+// Latence = heure de retour - heure d'envoi, mesurée avec l'horloge locale (indépendante du NTP).
+void SaillanceClass::publishPing_(uint32_t now) {
+  if (!mqttConnected_ || !pingSubscribed_) return;
+
+  if (pingReply_) {
+    pingReply_ = false;
+    if (pingAwaiting_ && pingRecvSeq_ == pingSentSeq_) {
+      uint32_t us = pingRecvUs_ - pingSentUs_;
+      latMs_ = (int)((us + 500u) / 1000u);
+      pingAwaiting_ = false;
+    }
+  }
+
+  if (pingEverSent_ && (uint32_t)(now - lastPingMs_) < SAILLANCE_PING_PERIOD_MS) return;
+
+  if (pingAwaiting_) {  // le ping précédent n'est jamais revenu
+    latMs_ = -1;
+    pingAwaiting_ = false;
+  }
+  size_t n = buildPingPayload(payload_, sizeof(payload_), timestampMs(), pingSeq_);
+  pingSentSeq_ = pingSeq_;
+  pingSentUs_ = micros();  // avant l'envoi : la réponse peut arriver très vite
+  pingAwaiting_ = true;
+  if (n && publish_(pingTopic_, payload_, n, 0)) {
+    pingSeq_++;
+    pingEverSent_ = true;
+    lastPingMs_ = now;
+  } else {
+    pingAwaiting_ = false;
   }
 }
 

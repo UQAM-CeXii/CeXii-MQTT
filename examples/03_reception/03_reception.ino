@@ -11,7 +11,7 @@ void setup() {
   Saillance.beginWifi(Board::Esp32, "exemple3", "NomDuWifi", "MotDePasse");
 
   // Façon 1 : garder le "tuyau" et lire avec get()
-  Topic t1 = Saillance.topic(Zone::Mana, "lumiere", "plafonnier", "niveau");
+  Topic t1 = Saillance.topic(Zone::Jam, "lumiere", "plafonnier", "niveau");
   luminosite = Saillance.input(t1);
 
   // Façon 2 : une fonction appelée automatiquement à chaque message reçu

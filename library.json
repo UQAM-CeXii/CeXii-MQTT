@@ -32,6 +32,11 @@
       "name": "04 Envoyer du texte",
       "base": "examples/04_texte",
       "files": ["platformio.ini", "04_texte.ino"]
+    },
+    {
+      "name": "05 Envoyer et recevoir une table",
+      "base": "examples/05_table",
+      "files": ["platformio.ini", "05_table.ino"]
     }
   ]
 }

@@ -13,7 +13,7 @@ void setup() {
 
   // 2) Choisir où envoyer : zone / module / composante / propriété
   //    (chaque texte : 12 caractères max)
-  Topic topic = Saillance.topic(Zone::Mana, "lumiere", "bande1", "couleur");
+  Topic topic = Saillance.topic(Zone::Jam, "lumiere", "bande1", "couleur");
 
   // 3) Créer l'envoi : les clés des valeurs (6 caractères max), la fréquence max (1 à 30 Hz),
   //    et le mode : Continuous = en continu, Event = seulement quand ça change.

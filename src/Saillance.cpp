@@ -39,6 +39,33 @@ void TextOut::trigger() {
   ch_->dirty = true;
 }
 
+void TableOut::clear() {
+  if (!ch_) return warnInvalidHandle("TableOut");
+  ch_->clear();
+}
+void TableOut::addRow(std::initializer_list<const char*> cells) {
+  if (!ch_) return warnInvalidHandle("TableOut");
+  ch_->addRow(cells.begin(), cells.size());
+}
+void TableOut::set(uint16_t row, uint16_t col, const char* text) {
+  if (!ch_) return warnInvalidHandle("TableOut");
+  ch_->setCell(row, col, text);
+}
+void TableOut::set(uint16_t row, uint16_t col, float number) {
+  char tmp[24];
+  snprintf(tmp, sizeof(tmp), "%.4g", (double)number);
+  set(row, col, tmp);
+}
+void TableOut::set(uint16_t row, uint16_t col, int number) {
+  char tmp[16];
+  snprintf(tmp, sizeof(tmp), "%d", number);
+  set(row, col, tmp);
+}
+void TableOut::trigger() {
+  if (!ch_) return warnInvalidHandle("TableOut");
+  ch_->dirty = true;
+}
+
 static const Message kEmptyMessage;
 
 bool Input::hasData() const { return ch_ && ch_->hasData; }
@@ -52,6 +79,13 @@ float Input::value(uint8_t i) const { return ch_ ? ch_->last.value(i) : 0.0f; }
 bool Input::isText() const { return ch_ && ch_->last.isText; }
 const char* Input::text() const { return ch_ ? ch_->last.text : ""; }
 const Message& Input::message() const { return ch_ ? ch_->last : kEmptyMessage; }
+bool Input::isTable() const { return ch_ && ch_->last.isTable; }
+size_t Input::rowCount() const { return ch_ ? ch_->last.rowCount() : 0; }
+size_t Input::colCount(size_t row) const { return ch_ ? ch_->last.colCount(row) : 0; }
+const char* Input::cell(size_t row, size_t col) const { return ch_ ? ch_->last.cell(row, col) : ""; }
+float Input::cellFloat(size_t row, size_t col, float fallback) const {
+  return ch_ ? ch_->last.cellFloat(row, col, fallback) : fallback;
+}
 void Input::onMessage(MessageCallback cb) {
   if (!ch_) return warnInvalidHandle("Input");
   ch_->callback = cb;
@@ -80,6 +114,10 @@ void SaillanceClass::setNtpServer(const char* server) {
   if (server && server[0]) strncpy(ntpServer_, server, sizeof(ntpServer_) - 1);
 }
 void SaillanceClass::setDebug(bool on) { debug_ = on; }
+void SaillanceClass::setAppName(const char* name) {
+  strncpy(appName_, name ? name : "", sizeof(appName_) - 1);
+  appName_[sizeof(appName_) - 1] = '\0';
+}
 
 bool SaillanceClass::beginWifi(Board board, const char* deviceName, const char* ssid, const char* password) {
   if (!ssid || !ssid[0]) {
@@ -108,6 +146,7 @@ bool SaillanceClass::begin_(Board board, const char* deviceName, Link link) {
   if (!buildUsername(board, deviceName, username_, sizeof(username_))) return false;
   buildSysTopic(username_, "error", errorTopic_, sizeof(errorTopic_));
   buildSysTopic(username_, "infos", infosTopic_, sizeof(infosTopic_));
+  buildSysTopic(username_, "ping", pingTopic_, sizeof(pingTopic_));
 
   // Nom réseau : le "_" n'est pas permis dans un hostname.
   strncpy(hostname_, username_, sizeof(hostname_) - 1);
@@ -124,6 +163,7 @@ bool SaillanceClass::begin_(Board board, const char* deviceName, Link link) {
   say("appareil : %s", username_);
   say("topic erreurs : %s", errorTopic_);
   say("topic infos   : %s (toutes les %d s)", infosTopic_, SAILLANCE_INFOS_PERIOD_MS / 1000);
+  say("topic ping    : %s (toutes les %d s)", pingTopic_, SAILLANCE_PING_PERIOD_MS / 1000);
   if (!startNetwork_()) return false;
 
   started_ = true;
@@ -181,6 +221,26 @@ TextOut SaillanceClass::textOut(const Topic& topic, uint8_t maxHz, SendMode mode
   return TextOut(ch);
 }
 
+TableOut SaillanceClass::tableOut(const Topic& topic, uint8_t maxHz, SendMode mode) {
+  if (!topic.valid()) {
+    reportIssue(Severity::Error, ErrorCode::ApiBadTopic, "tableOut", "topic invalide (voir erreur plus haut)");
+    return TableOut();
+  }
+  if (!tablePayload_) {
+    tablePayload_ = (char*)malloc(SAILLANCE_TABLE_MAX_BYTES + 1);
+    if (!tablePayload_) {
+      reportIssue(Severity::Error, ErrorCode::ApiBadConfig, "tableOut", "memoire insuffisante pour une table");
+      return TableOut();
+    }
+  }
+  TableChannel* ch = new TableChannel();
+  ch->configure(topic, maxHz, mode);
+  tableOuts_.push_back(ch);
+  say("envoi    -> %s  [table]  max %u Hz, %s", topic.c_str(), (unsigned)ch->maxHz,
+      mode == SendMode::Continuous ? "continu" : "sur evenement");
+  return TableOut(ch);
+}
+
 Input SaillanceClass::input(const Topic& topic) {
   if (!topic.valid()) {
     reportIssue(Severity::Error, ErrorCode::ApiBadTopic, "input", "topic invalide (voir erreur plus haut)");
@@ -206,11 +266,19 @@ void SaillanceClass::update() {
   if (!started_) return;
   uint32_t now = millis();
   frames_++;
+  uint32_t us = micros();  // durée de chaque "image" (tour de loop) pour msmax / fpsmin
+  if (lastFrameUs_) {
+    uint32_t gap = us - lastFrameUs_;
+    if (gap > maxGapUs_) maxGapUs_ = gap;
+    gapCount_++;
+  }
+  lastFrameUs_ = us;
   syncMqtt_();
   if (mqttConnected_) subscribeAll_();
   dispatchIncoming_();
   publishOutputs_(now);
   publishErrors_();
+  publishPing_(now);
   publishInfos_(now);
 }
 
@@ -242,6 +310,25 @@ void SaillanceClass::publishOutputs_(uint32_t now) {
     }
     size_t n = ch->build(payload_, sizeof(payload_), timestampMs());
     if (n == 0 || !publish_(ch->topic.c_str(), payload_, n, 0)) droppedFrames_++;
+    ch->markSent(now);
+  }
+  for (TableChannel* ch : tableOuts_) {
+    if (!ch->due(now)) continue;
+    if (!online) {
+      if (ch->mode == SendMode::Continuous) {
+        ch->markSent(now);
+        droppedFrames_++;
+      }
+      continue;
+    }
+    size_t n = ch->build(tablePayload_, SAILLANCE_TABLE_MAX_BYTES + 1, timestampMs());
+    if (n == 0) {
+      reportIssue(Severity::Error, ErrorCode::ApiBadValue, "table", "table trop grosse (max %d octets) : non envoyee",
+                  SAILLANCE_TABLE_MAX_BYTES);
+      droppedFrames_++;
+    } else if (!publish_(ch->topic.c_str(), tablePayload_, n, 0)) {
+      droppedFrames_++;
+    }
     ch->markSent(now);
   }
 }

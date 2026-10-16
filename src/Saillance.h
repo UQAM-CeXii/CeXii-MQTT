@@ -11,7 +11,7 @@
 //    void setup() {
 //      Serial.begin(115200);
 //      Saillance.beginWifi(Board::Esp32, "controlbouton", "MonWifi", "MotDePasse");
-//      Topic t = Saillance.topic(Zone::Mana, "lumiere", "bande1", "couleur");
+//      Topic t = Saillance.topic(Zone::Jam, "lumiere", "bande1", "couleur");
 //      lumiere = Saillance.floatOut(t, {"r", "g", "b"});
 //    }
 //
@@ -71,6 +71,29 @@ class TextOut {
 };
 
 // ---------------------------------------------------------------------------
+//  Sortie de table : une liste de rangées, chaque rangée une liste de textes.
+//  rangée y, colonne x : set(y, x, ...). Maximum 64 rangées x 16 colonnes, 8 Ko par message.
+// ---------------------------------------------------------------------------
+class TableOut {
+ public:
+  TableOut() {}
+  void clear();                                          // vider la table
+  void addRow(std::initializer_list<const char*> cells);  // ajouter une rangée à la fin
+  void set(uint16_t row, uint16_t col, const char* text);
+  void set(uint16_t row, uint16_t col, const String& text) { set(row, col, text.c_str()); }
+  void set(uint16_t row, uint16_t col, float number);     // le nombre est converti en texte
+  void set(uint16_t row, uint16_t col, double number) { set(row, col, (float)number); }
+  void set(uint16_t row, uint16_t col, int number);
+  void trigger();
+  bool valid() const { return ch_ != nullptr; }
+
+ private:
+  friend class SaillanceClass;
+  explicit TableOut(TableChannel* ch) : ch_(ch) {}
+  TableChannel* ch_ = nullptr;
+};
+
+// ---------------------------------------------------------------------------
 //  Réception : soit on lit la dernière valeur, soit on est appelé à chaque message.
 // ---------------------------------------------------------------------------
 class Input {
@@ -85,6 +108,11 @@ class Input {
   bool isText() const;
   const char* text() const;             // dernier texte reçu
   const Message& message() const;       // tout le message
+  bool isTable() const;                 // le dernier message est une table ?
+  size_t rowCount() const;
+  size_t colCount(size_t row) const;
+  const char* cell(size_t row, size_t col) const;                       // "" si la case n'existe pas
+  float cellFloat(size_t row, size_t col, float fallback = 0.0f) const;  // la case lue comme un nombre
   void onMessage(MessageCallback cb);   // appelé dans loop() via update()
 
  private:
@@ -110,12 +138,13 @@ class SaillanceClass {
   void setMqttPassword(const char* password);
   void setNtpServer(const char* server);   // pour l'horodatage (défaut pool.ntp.org)
   void setDebug(bool on);                  // messages d'état sur Serial (défaut: oui)
+  void setAppName(const char* name);       // champ "app" de /infos, ex: "controlbouton_v1.2" (défaut: vide)
 
   // --- 2. À appeler dans loop() ----------------------------------------------
   void update();
 
   // --- 3. Construire un topic (guidé) ---------------------------------------
-  //   Saillance.zone(Zone::Mana).module("lumiere").component("bande1").property("couleur")
+  //   Saillance.zone(Zone::Jam).module("lumiere").component("bande1").property("couleur")
   TopicNeedsModule zone(Zone z) { return TopicNeedsModule(z); }
   //   ou en une ligne :
   Topic topic(Zone z, const char* module, const char* component, const char* property) {
@@ -128,6 +157,9 @@ class SaillanceClass {
   FloatOut floatOut(const Topic& topic, std::initializer_list<const char*> keys, uint8_t maxHz = 30,
                     SendMode mode = SendMode::Event);
   TextOut textOut(const Topic& topic, uint8_t maxHz = 30, SendMode mode = SendMode::Event);
+
+  // Table : maxHz par défaut plus bas (10) car une table peut peser jusqu'à 8 Ko
+  TableOut tableOut(const Topic& topic, uint8_t maxHz = 10, SendMode mode = SendMode::Event);
 
   // --- 5. Recevoir ----------------------------------------------------------
   Input input(const Topic& topic);
@@ -150,7 +182,8 @@ class SaillanceClass {
     char msg[100];
   };
   struct Incoming {
-    uint16_t len;
+    uint32_t len;
+    char* big;  // message > 512 octets (table) : copie sur le tas, libérée par dispatchIncoming_
     char topic[SAILLANCE_TOPIC_MAX + 1];
     char payload[SAILLANCE_PAYLOAD_MAX + 1];
   };
@@ -176,6 +209,7 @@ class SaillanceClass {
   void startSystem_();
   void publishErrors_();
   void publishInfos_(uint32_t now);
+  void publishPing_(uint32_t now);
   void publishOutputs_(uint32_t now);
   float sampleCpu_();
   static int logHook_(const char* fmt, va_list args);
@@ -195,6 +229,8 @@ class SaillanceClass {
   char uri_[64] = {0};
   char errorTopic_[SAILLANCE_TOPIC_MAX + 1] = {0};
   char infosTopic_[SAILLANCE_TOPIC_MAX + 1] = {0};
+  char pingTopic_[SAILLANCE_TOPIC_MAX + 1] = {0};
+  char appName_[48] = {0};
   char payload_[SAILLANCE_PAYLOAD_MAX + 1] = {0};
 
   esp_mqtt_client_handle_t client_ = nullptr;
@@ -205,6 +241,8 @@ class SaillanceClass {
 
   std::vector<FloatChannel*> floatOuts_;
   std::vector<TextChannel*> textOuts_;
+  std::vector<TableChannel*> tableOuts_;
+  char* tablePayload_ = nullptr;  // tampon de 8 Ko, créé au premier tableOut()
   std::vector<InputChannel*> inputs_;
 
   void* incomingQueue_ = nullptr;  // QueueHandle_t
@@ -218,6 +256,14 @@ class SaillanceClass {
   uint32_t idleLast_[2] = {0, 0};
   float idleMaxRate_[2] = {0, 0};
   uint32_t lastCpuMs_ = 0;
+  uint32_t lastFrameUs_ = 0, maxGapUs_ = 0, gapCount_ = 0;
+  volatile uint32_t mqttConnections_ = 0;
+  // ping / latence
+  bool pingSubscribed_ = false, pingAwaiting_ = false, pingEverSent_ = false;
+  uint32_t pingSeq_ = 0, pingSentSeq_ = 0, lastPingMs_ = 0, pingSentUs_ = 0;
+  volatile uint32_t pingRecvUs_ = 0, pingRecvSeq_ = 0;
+  volatile bool pingReply_ = false;
+  int latMs_ = -1;
   // anti-répétition des erreurs
   uint32_t lastErrHash_ = 0, lastErrMs_ = 0;
   uint32_t lowHeapMs_ = 0;
