@@ -1,217 +1,148 @@
-# Le skill Claude « cexii-mqtt » : l'utiliser et le publier
+# Utiliser Claude pour programmer avec CeXii MQTT
 
-Un **skill** est un petit dossier de consignes que Claude charge tout seul quand la conversation s'y prête.
-Celui-ci apprend à Claude à utiliser la bibliothèque CeXii MQTT : écrire un sketch ESP32 qui marche du premier
-coup, respecter les limites (24 caractères, 0 à 1, 16 colonnes…), choisir le bon topic, tester avec MQTTX et
-dépanner à partir du moniteur série.
+Il existe un **skill Claude** pour la bibliothèque CeXii MQTT. Un skill, c'est un mode d'emploi que Claude
+lit tout seul quand vous parlez de la bibliothèque. Une fois installé, vous pouvez demander à Claude, en
+français et avec vos mots :
 
-Il se trouve dans le dépôt : [`skill/cexii-mqtt/`](../skill/cexii-mqtt/).
+- d'**écrire un programme complet** pour votre carte ESP32 (prêt à copier dans l'Arduino IDE) ;
+- d'**expliquer** une partie du code ou un message d'erreur du moniteur série ;
+- de **trouver pourquoi** vos messages n'arrivent pas.
 
-**Sur cette page** : [Ce qu'il y a dedans](#1-ce-quil-y-a-dedans) · [L'utiliser](#2-lutiliser) ·
-[Le partager](#3-le-partager-aux-autres) · [Le garder à jour](#4-le-garder-à-jour) ·
-[Publier la bibliothèque](#5-publier-la-bibliothèque-elle-même) · [Dépannage](#6-ça-ne-marche-pas-)
+Claude connaît les règles de la bibliothèque (24 caractères pour le nom, valeurs de 0 à 1, 16 colonnes pour
+une table…), le format des topics et les zones (`jam`, `ecrans`, `globale`, `regie`). Vous n'avez pas besoin
+de les lui expliquer.
 
----
-
-## 1. Ce qu'il y a dedans
-
-```
-skill/cexii-mqtt/
-├── SKILL.md                      le cœur : quand s'en servir, la marche à suivre, les règles
-├── references/
-│   ├── api.md                    toutes les fonctions de la bibliothèque
-│   ├── examples.md               7 sketchs complets qui compilent (à copier et adapter)
-│   ├── messages.md               formats JSON, champs de infos, codes d'erreur, messages de test MQTTX
-│   └── troubleshooting.md        tableau de dépannage
-└── scripts/
-    └── check_names.py            vérifie un nom d'appareil, un topic, des clés avant d'écrire le code
-```
-
-Claude ne lit que `SKILL.md` au départ, puis ouvre les fichiers de `references/` seulement quand il en a
-besoin : ça garde la conversation légère.
+**Sur cette page** : [Installer](#1-installer-le-skill) · [Lui parler](#2-comment-lui-parler) ·
+[Utiliser sa réponse](#3-utiliser-la-réponse-de-claude) · [Exemples](#4-exemples) ·
+[Bon à savoir](#5-bon-à-savoir) · [Dépannage](#6-ça-ne-marche-pas-)
 
 ---
 
-## 2. L'utiliser
+## 1. Installer le skill
 
-### Dans Claude Code (terminal ou onglet Code de l'application Claude)
+On vous a remis un fichier nommé **`cexii-mqtt.skill`**. Choisissez l'application que vous utilisez.
 
-Il suffit que le dossier soit à l'un de ces deux endroits :
+### Dans Claude (site claude.ai ou application Claude)
 
-| Où                                          | Pour qui                           | Commande        |
-| ------------------------------------------- | ---------------------------------- | --------------- |
-| `~/.claude/skills/cexii-mqtt/`              | vous, dans tous vos projets        | voir ci-dessous |
-| `<votre projet>/.claude/skills/cexii-mqtt/` | toute personne qui ouvre ce projet | voir ci-dessous |
+1. Ouvrez les **Paramètres** de Claude.
+2. Allez dans **Capacités** (en anglais *Capabilities*), puis dans la section **Skills**.
+3. Cliquez sur **Téléverser un skill** (*Upload skill*) et choisissez le fichier `cexii-mqtt.skill`.
+4. Vérifiez que **cexii-mqtt** apparaît dans la liste et qu'il est **activé**.
 
-Pour un projet (le dossier est alors versionné avec le projet) :
+Les noms des menus changent un peu selon la version de l'application et le forfait. Si vous ne trouvez pas
+« Skills », cherchez ce mot dans les paramètres, ou demandez à la personne qui gère votre compte Claude
+(certains forfaits ne permettent pas d'ajouter un skill).
+
+### Dans Claude Code (programmation dans le terminal)
+
+Copiez le **dossier** `cexii-mqtt` (celui du dépôt : `skill/cexii-mqtt`) dans le dossier `.claude/skills/` de
+votre projet, ou dans `~/.claude/skills/` pour l'avoir dans tous vos projets :
 
 ```bash
-mkdir -p .claude/skills
-cp -R /chemin/vers/saillance-mqtt/skill/cexii-mqtt .claude/skills/
+mkdir -p ~/.claude/skills
+cp -R chemin/vers/cexii-mqtt ~/.claude/skills/
 ```
 
-Ensuite, **ouvrez une nouvelle session** Claude Code : les skills sont lus au démarrage.
-
-### Dans Claude.ai et l'application Claude (discussion, Cowork)
-
-1. Récupérez le fichier **`cexii-mqtt.skill`** (voir [Le partager](#3-le-partager-aux-autres)).
-2. Dans Claude : **Paramètres > Capacités (Capabilities) > Skills > Téléverser un skill**, puis choisissez le fichier.
-3. Activez le skill dans la liste.
-
-Les noms des menus changent un peu selon la version et le forfait, et ce réglage peut être réservé à certains
-forfaits : si vous ne trouvez pas l'option, cherchez « Skills » dans les paramètres ou demandez à la personne qui
-administre votre compte.
-
-### Vérifier que ça marche
-
-Ouvrez une conversation et demandez, sans nommer le skill :
-
-> « Écris-moi un sketch pour une ESP32-POE-ISO qui envoie la valeur d'un potentiomètre au serveur. »
-
-Vous devriez voir que Claude :
-
-- utilise `#include <CexiiMqtt.h>` et l'objet `CexiiMqtt` ;
-- appelle `beginEthernet(Board::Esp32PoeIso, ...)` avec un nom en lettres et chiffres ;
-- construit un topic de la forme `saillance/<zone>/…` avec une zone de la liste (`Jam`, `Ecrans`, `Globale`, `Regie`) ;
-- garde les valeurs entre 0 et 1 et met `CexiiMqtt.update()` dans `loop()` ;
-- vous dit comment vérifier le résultat dans MQTTX.
-
-Autres demandes qui devraient le déclencher :
-
-- « Mon ESP32 reçoit un texte mais rien ne s'affiche dans le moniteur série. »
-- « Comment j'envoie une table de 3 colonnes à TouchDesigner ? »
-- « Pourquoi je ne reçois pas les messages infos de ma carte ? »
-
-Si Claude ne s'y réfère pas, dites-le-lui : « utilise le skill cexii-mqtt ».
+Puis **fermez et rouvrez** Claude Code : le skill est lu au démarrage.
 
 ---
 
-## 3. Le partager aux autres
+## 2. Comment lui parler
 
-Choisissez selon les personnes à qui vous voulez le donner.
+Parlez normalement. Pas besoin de nommer le skill ni la bibliothèque : dès que vous parlez de votre ESP32 et
+d'envoyer ou de recevoir des messages, Claude s'en sert.
 
-### A. Par le dépôt git (le plus simple pour l'équipe)
+Plus votre demande est précise, moins Claude a de questions à poser. Essayez de donner :
 
-Le skill voyage avec la bibliothèque : tout le monde qui clone le dépôt a le dossier `skill/cexii-mqtt/`
-et suit la section [2](#2-lutiliser). Pour qu'il soit actif automatiquement dans un projet, copiez-le dans le
-`.claude/skills/` de ce projet et commitez-le.
+| Information | Exemple |
+|---|---|
+| **La carte et le réseau** | « une ESP32-POE-ISO en câble réseau » ou « une ESP32 normale en WiFi » |
+| **Ce qu'elle doit envoyer ou recevoir** | « la valeur d'un potentiomètre », « un texte », « une table de 3 colonnes » |
+| **La zone** | `jam`, `ecrans`, `globale` ou `regie` |
+| **Le nom de l'appareil** | « controlbouton » (lettres et chiffres seulement, 24 caractères au maximum) |
+| **Quand envoyer** | « en continu 20 fois par seconde » ou « seulement quand ça change » |
 
-### B. Par un fichier `.skill` (pour Claude.ai, ou pour envoyer par courriel)
+Si vous ne savez pas, dites-le : Claude choisira une valeur raisonnable et vous l'expliquera.
 
-Un fichier `.skill` est un simple zip du dossier du skill. Pour le créer depuis la racine du dépôt :
-
-```bash
-cd skill && zip -rX ../cexii-mqtt.skill cexii-mqtt -x "*.DS_Store" "*__pycache__*" && cd ..
-```
-
-Donnez le fichier `cexii-mqtt.skill` : chaque personne le téléverse comme décrit à la section 2.
-Un fichier `.skill` ne se met pas à jour tout seul : redonnez-le à chaque nouvelle version.
-
-### C. Comme plugin Claude Code (pour que les gens l'installent d'une commande)
-
-Pour une diffusion plus large, un dépôt GitHub peut servir de « marketplace » de plugins. Il faut y ajouter
-deux fichiers (le format exact évolue : confirmez-le dans la documentation officielle de Claude Code,
-chapitre _Plugins_).
-
-`.claude-plugin/plugin.json` :
-
-```json
-{
-  "name": "cexii-mqtt",
-  "description": "Aide à utiliser la bibliothèque CeXii MQTT sur ESP32",
-  "version": "0.1.0"
-}
-```
-
-`.claude-plugin/marketplace.json` :
-
-```json
-{
-  "name": "cexii",
-  "owner": { "name": "CeXii" },
-  "plugins": [
-    {
-      "name": "cexii-mqtt",
-      "source": "./",
-      "description": "Skill CeXii MQTT pour ESP32"
-    }
-  ]
-}
-```
-
-et le skill doit alors se trouver dans `skills/cexii-mqtt/` à la racine de ce dépôt (au lieu de `skill/`).
-Les personnes l'installent ensuite avec :
-
-```text
-/plugin marketplace add VOTRE-COMPTE/cexii-mqtt
-/plugin install cexii-mqtt@cexii
-```
-
-### D. Pour toute une organisation Claude
-
-Si votre organisation utilise Claude Team ou Enterprise, les personnes qui l'administrent peuvent parfois ajouter
-un skill pour tout le monde depuis les paramètres de l'organisation. Selon les offres, cette option n'existe pas :
-vérifiez auprès de l'administration.
+**Ne collez pas vos mots de passe** dans la conversation. Claude met des valeurs génériques (`"NomDuWifi"`,
+`"MotDePasse"`) que vous remplacez vous-même dans le programme.
 
 ---
 
-## 4. Le garder à jour
+## 3. Utiliser la réponse de Claude
 
-Le skill contient une **copie** des règles de la bibliothèque. S'il n'est pas mis à jour, Claude donnera des
-conseils périmés (une zone qui n'existe plus, une limite qui a changé).
+1. **Copiez le programme** dans l'Arduino IDE (ou dans PlatformIO).
+2. **Changez les lignes « À MODIFIER »** tout en haut : le nom de l'appareil et, en WiFi, le nom du réseau
+   et son mot de passe.
+3. Vérifiez dans l'Arduino IDE le **type de carte** (Outils > Type de carte) et **Core Debug Level : Error**.
+4. **Téléversez**, puis ouvrez le **moniteur série** à la vitesse **115200**. Vous devez voir
+   `MQTT connecte`.
+5. **Testez avec MQTTX** : Claude vous donne le topic à surveiller et, pour tester la réception, le message à
+   envoyer.
 
-| Si vous changez…                           | Mettez à jour…                                                                                   |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| la liste des zones (`CEXII_ZONES`)         | `SKILL.md` (tableau des règles), `scripts/check_names.py` (`DEFAULT_ZONES`), `docs/REFERENCE.md` |
-| une limite (24, 12, 6, 30 Hz, 64×16, 8 Ko) | `SKILL.md`, `references/api.md`, `scripts/check_names.py`, README                                |
-| un nom de fonction ou son comportement     | `references/api.md` et les gabarits de `references/examples.md`                                  |
-| un champ de `infos`, un code d'erreur      | `references/messages.md`                                                                         |
-| l'adresse du serveur ou les règles EMQX    | `SKILL.md` (« Les faits à connaître »), `references/troubleshooting.md`                          |
-
-Après une modification des exemples du skill, vérifiez qu'ils compilent toujours : chaque bloc `cpp` de
-`references/examples.md` doit rester un sketch complet (copiez-le dans un projet PlatformIO et lancez `pio run`).
-
-Ensuite : recréez le `.skill` (section 3B) et redonnez-le, ou faites un `git pull` si vous utilisez le lien.
+Si ça ne fonctionne pas, **copiez ce que dit le moniteur série** dans la conversation et demandez à Claude
+ce que ça veut dire.
 
 ---
 
-## 5. Publier la bibliothèque elle-même
+## 4. Exemples
 
-Le skill aide à _utiliser_ la bibliothèque ; ceci explique comment la _mettre à disposition_.
+### Écrire un programme
 
-**Sans registre (le plus simple)** : mettre le dépôt sur GitHub. Les personnes l'installent avec le zip dans
-l'Arduino IDE, ou avec `lib_deps = https://github.com/VOTRE-COMPTE/cexii-mqtt.git` dans PlatformIO.
+> « Écris-moi un programme pour une ESP32-POE-ISO branchée en câble réseau. Un bouton sur la broche 34 doit
+> envoyer 1 quand je l'appuie et 0 quand je le relâche, dans la zone régie. »
 
-**Gestionnaire de bibliothèques de l'Arduino IDE** (public) :
+Claude écrit le programme complet, vous dit quel topic regarder dans MQTTX et ce qu'il faut modifier.
 
-1. Dépôt GitHub **public** avec `library.properties` à la racine (adresse `url=` à corriger) et un fichier `LICENSE`.
-2. Vérifier : `arduino-lint --library-manager submit`.
-3. Créer une release GitHub dont le tag est identique à `version=` (`0.1.0`).
-4. Faire une demande d'ajout sur [arduino/library-registry](https://github.com/arduino/library-registry)
-   (une ligne dans `repositories.txt`). Les versions suivantes sont détectées toutes seules (nouveau tag).
+### Recevoir des données
 
-**Registre PlatformIO** (public) : `pio account register`, compléter `library.json` (`license`, `repository`,
-`authors`), puis `pio pkg publish` à la racine. Une version publiée ne peut pas être remplacée.
+> « Je veux que ma carte allume une LED plus ou moins fort selon une valeur que TouchDesigner envoie sur
+> `saillance/jam/lumiere/plafonnier/niveau`. »
 
-**Attention** : publier dans un registre public rend visibles l'adresse du serveur interne (`10.0.21.210`) et la
-structure des topics. Pour un outil interne, la diffusion par GitHub privé ou par zip suffit.
+### Envoyer une table
+
+> « Comment j'envoie une table de 3 rangées et 4 colonnes, avec des cases qui changent toutes les secondes ? »
+
+### Comprendre un problème
+
+> « Mon moniteur série dit "cle zzz inconnue sur saillance/jam/lumiere/bande1/couleur". Qu'est-ce que ça veut
+> dire ? »
+
+> « Ma carte est connectée mais je ne reçois pas les messages `infos` dans MQTTX. »
+
+### Adapter un programme existant
+
+Collez votre programme et dites ce que vous voulez changer :
+
+> « Voici mon programme. Je voudrais envoyer aussi un texte toutes les 2 secondes, dans la zone écrans. »
+
+---
+
+## 5. Bon à savoir
+
+- **Claude peut se tromper.** Compilez toujours le programme et testez-le avec MQTTX. Si une réponse
+  semble étrange, demandez-lui de vérifier ou de l'expliquer.
+- **La bibliothèque s'appelle maintenant « CeXii MQTT »** (`#include <CexiiMqtt.h>`, objet `CexiiMqtt`).
+  Si Claude écrit `Saillance.update()` ou `#include <Saillance.h>`, votre skill est une ancienne version :
+  redemandez le fichier le plus récent.
+- **Le skill suit la version de la bibliothèque.** Si on ajoute une zone ou si une limite change, il faut
+  réinstaller la dernière version du fichier `cexii-mqtt.skill`.
+- **Les topics commencent toujours par `saillance/`**, c'est voulu : c'est le nom du projet dans l'adresse des
+  messages.
+- Le skill aide à écrire du code : il ne se connecte pas au serveur et ne voit pas votre carte. Pour qu'il
+  comprenne ce qui se passe, il lui faut ce que vous voyez (moniteur série, MQTTX).
 
 ---
 
 ## 6. Ça ne marche pas ?
 
-| Problème                                               | Piste                                                                                                                                                           |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude n'a pas l'air de connaître la bibliothèque      | le dossier doit s'appeler exactement `cexii-mqtt`, contenir `SKILL.md`, et être dans `~/.claude/skills/` ou `.claude/skills/` ; ouvrez une **nouvelle** session |
-| Claude Code ne voit pas le skill après un lien `ln -s` | vérifiez la cible du lien : `ls ~/.claude/skills/cexii-mqtt/SKILL.md` doit afficher le fichier                                                                  |
-| Le téléversement dans Claude.ai est refusé             | le zip doit avoir le dossier `cexii-mqtt/` à sa racine, avec `SKILL.md` dedans (pas un dossier de plus)                                                         |
-| Claude écrit `Saillance.update()`                      | il utilise une ancienne version du skill : remplacez-la, la bibliothèque s'appelle maintenant `CexiiMqtt`                                                       |
-| Claude propose une zone inexistante                    | le skill n'est pas à jour avec `CEXII_ZONES` : voir la section 4                                                                                                |
-| Le script `check_names.py` ne démarre pas              | il faut Python 3 (`python3 --version`)                                                                                                                          |
+| Problème | Piste |
+|---|---|
+| Claude ne semble pas connaître la bibliothèque | vérifiez que le skill **cexii-mqtt** est dans la liste et activé (section 1) ; ouvrez une **nouvelle conversation** ; ou écrivez « utilise le skill cexii-mqtt » |
+| Je ne trouve pas « Skills » dans les paramètres | votre forfait ne le permet peut-être pas : demandez à la personne qui gère le compte |
+| Le téléversement est refusé | redemandez le fichier `cexii-mqtt.skill` : il est peut-être abîmé ou incomplet |
+| Claude propose une zone qui n'existe pas | les zones actuelles sont `jam`, `ecrans`, `globale`, `regie` ; votre skill est peut-être ancien |
+| Le programme ne compile pas | collez l'erreur dans la conversation avec la version de la carte (Outils > Type de carte) |
+| Le programme compile mais rien n'arrive | voir la table « Ça ne marche pas ? » du [README](../README.md#8-ça-ne-marche-pas-), ou collez le moniteur série à Claude |
 
-Pour tester le script à la main :
-
-```bash
-python3 skill/cexii-mqtt/scripts/check_names.py username esp32poeiso controlbouton
-python3 skill/cexii-mqtt/scripts/check_names.py topic globale lumiere bande1 couleur --config src/CexiiMqttConfig.h
-```
+Pour toutes les fonctions en détail : [docs/REFERENCE.md](REFERENCE.md).

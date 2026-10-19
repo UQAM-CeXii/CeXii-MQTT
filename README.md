@@ -320,7 +320,7 @@ Regardez d'abord le **moniteur série (115200)** : la bibliothèque y explique l
 
 ## Pour aller plus loin
 
-* [docs/GUIDE_SKILL.md](docs/GUIDE_SKILL.md) : le skill Claude « cexii-mqtt » qui aide à écrire du code avec cette
-  bibliothèque ; comment l'utiliser, le partager et le publier.
+* [docs/GUIDE_SKILL.md](docs/GUIDE_SKILL.md) : utiliser Claude (skill « cexii-mqtt ») pour écrire et dépanner
+  vos programmes avec cette bibliothèque.
 * [docs/REFERENCE.md](docs/REFERENCE.md) : toutes les fonctions, le format exact des messages, les champs
   de `infos`, les codes d'erreur, la configuration (ajouter une zone, changer l'adresse du serveur).
