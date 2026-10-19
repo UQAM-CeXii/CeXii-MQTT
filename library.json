@@ -1,8 +1,8 @@
 {
-  "name": "Saillance",
+  "name": "CeXii MQTT",
   "version": "0.1.0",
   "description": "Envoyer et recevoir des messages MQTT (broker EMQX en WebSocket) depuis un ESP32 ou un ESP32 PoE, avec topics guidés, messages système automatiques (error / infos), WiFi ou Ethernet.",
-  "keywords": "mqtt, esp32, poe, ethernet, wifi, websocket, emqx, saillance",
+  "keywords": "cexii, mqtt, esp32, poe, ethernet, wifi, websocket, emqx",
   "frameworks": "arduino",
   "platforms": "espressif32",
   "dependencies": [
@@ -14,29 +14,84 @@
   ],
   "examples": [
     {
-      "name": "01 Envoyer des valeurs (WiFi)",
-      "base": "examples/01_envoi_wifi",
-      "files": ["platformio.ini", "01_envoi_wifi.ino"]
+      "name": "01 Envoyer des nombres",
+      "base": "examples/01_Envoyer_nombres",
+      "files": [
+        "platformio.ini",
+        "01_Envoyer_nombres.ino"
+      ]
     },
     {
-      "name": "02 Ethernet PoE + bouton",
-      "base": "examples/02_ethernet_bouton",
-      "files": ["platformio.ini", "02_ethernet_bouton.ino"]
+      "name": "02 Envoyer un capteur",
+      "base": "examples/02_Envoyer_capteur",
+      "files": [
+        "platformio.ini",
+        "02_Envoyer_capteur.ino"
+      ]
     },
     {
-      "name": "03 Recevoir des valeurs",
-      "base": "examples/03_reception",
-      "files": ["platformio.ini", "03_reception.ino"]
+      "name": "03 Envoyer du texte",
+      "base": "examples/03_Envoyer_texte",
+      "files": [
+        "platformio.ini",
+        "03_Envoyer_texte.ino"
+      ]
     },
     {
-      "name": "04 Envoyer du texte",
-      "base": "examples/04_texte",
-      "files": ["platformio.ini", "04_texte.ino"]
+      "name": "04 Envoyer une table",
+      "base": "examples/04_Envoyer_table",
+      "files": [
+        "platformio.ini",
+        "04_Envoyer_table.ino"
+      ]
     },
     {
-      "name": "05 Envoyer et recevoir une table",
-      "base": "examples/05_table",
-      "files": ["platformio.ini", "05_table.ino"]
+      "name": "05 Recevoir des nombres",
+      "base": "examples/05_Recevoir_nombres",
+      "files": [
+        "platformio.ini",
+        "05_Recevoir_nombres.ino"
+      ]
+    },
+    {
+      "name": "06 Recevoir du texte",
+      "base": "examples/06_Recevoir_texte",
+      "files": [
+        "platformio.ini",
+        "06_Recevoir_texte.ino"
+      ]
+    },
+    {
+      "name": "07 Recevoir une table",
+      "base": "examples/07_Recevoir_table",
+      "files": [
+        "platformio.ini",
+        "07_Recevoir_table.ino"
+      ]
+    },
+    {
+      "name": "08 Tous les formats",
+      "base": "examples/08_Tous_les_formats",
+      "files": [
+        "platformio.ini",
+        "08_Tous_les_formats.ino"
+      ]
+    },
+    {
+      "name": "09 Ethernet PoE",
+      "base": "examples/09_Ethernet_PoE",
+      "files": [
+        "platformio.ini",
+        "09_Ethernet_PoE.ino"
+      ]
+    },
+    {
+      "name": "10 Etat et erreurs",
+      "base": "examples/10_Etat_et_erreurs",
+      "files": [
+        "platformio.ini",
+        "10_Etat_et_erreurs.ino"
+      ]
     }
   ]
 }

@@ -3,12 +3,12 @@
 #include <WiFi.h>
 #include <esp_arduino_version.h>
 
-#include "Saillance.h"
+#include "CexiiMqtt.h"
 
-namespace saillance {
+namespace cexii {
 
-bool SaillanceClass::startNetwork_() {
-  WiFi.onEvent(&SaillanceClass::onNetEvent_);
+bool CexiiMqttClass::startNetwork_() {
+  WiFi.onEvent(&CexiiMqttClass::onNetEvent_);
 
   if (link_ == Link::Wifi) {
     WiFi.persistent(false);  // ne pas user la flash à chaque démarrage
@@ -39,8 +39,8 @@ bool SaillanceClass::startNetwork_() {
   return true;
 }
 
-void SaillanceClass::onNetEvent_(arduino_event_id_t event, arduino_event_info_t info) {
-  SaillanceClass& s = Saillance;
+void CexiiMqttClass::onNetEvent_(arduino_event_id_t event, arduino_event_info_t info) {
+  CexiiMqttClass& s = CexiiMqtt;
   const bool wifi = s.link_ == Link::Wifi;
   const bool eth = s.link_ == Link::Ethernet;
 
@@ -88,4 +88,4 @@ void SaillanceClass::onNetEvent_(arduino_event_id_t event, arduino_event_info_t 
   }
 }
 
-}  // namespace saillance
+}  // namespace cexii

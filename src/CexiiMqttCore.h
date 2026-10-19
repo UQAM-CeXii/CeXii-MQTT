@@ -1,6 +1,6 @@
 #pragma once
 // ============================================================================
-//  SaillanceCore : logique pure (sans Arduino) -> testable sur l'ordinateur.
+//  CexiiMqttCore : logique pure (sans Arduino) -> testable sur l'ordinateur.
 //  Validation, construction des topics, JSON, cadence d'envoi.
 //  L'utilisateur n'a normalement pas besoin de lire ce fichier.
 // ============================================================================
@@ -11,13 +11,13 @@
 #include <string>
 #include <vector>
 
-#include "SaillanceConfig.h"
-#include "SaillanceTypes.h"
+#include "CexiiMqttConfig.h"
+#include "CexiiMqttTypes.h"
 
-namespace saillance {
+namespace cexii {
 
 // --- Signalement des problèmes ----------------------------------------------
-// La classe Saillance branche ce hook : message à l'écran (Serial) + topic /error.
+// La classe CexiiMqtt branche ce hook : message à l'écran (Serial) + topic /error.
 typedef void (*IssueHook)(Severity sv, ErrorCode code, const char* src, const char* msg);
 void setIssueHook(IssueHook hook);
 void reportIssue(Severity sv, ErrorCode code, const char* src, const char* fmt, ...)
@@ -51,14 +51,14 @@ class Topic {
 
  private:
   friend Topic makeTopic(Zone, const char*, const char*, const char*);
-  char path_[SAILLANCE_TOPIC_MAX + 1];
+  char path_[CEXII_TOPIC_MAX + 1];
   bool valid_;
 };
 
 Topic makeTopic(Zone zone, const char* module, const char* component, const char* property);
 
 // Construction guidée, étape par étape (l'éditeur propose la suite à chaque point) :
-//   Saillance.zone(Zone::Jam).module("lumiere").component("bande1").property("couleur")
+//   CexiiMqtt.zone(Zone::Jam).module("lumiere").component("bande1").property("couleur")
 class TopicNeedsProperty {
  public:
   Topic property(const char* name) const;
@@ -66,8 +66,8 @@ class TopicNeedsProperty {
  private:
   friend class TopicNeedsComponent;
   Zone zone_ = Zone::Count_;
-  char module_[SAILLANCE_SEGMENT_MAX + 1] = {0};
-  char component_[SAILLANCE_SEGMENT_MAX + 1] = {0};
+  char module_[CEXII_SEGMENT_MAX + 1] = {0};
+  char component_[CEXII_SEGMENT_MAX + 1] = {0};
   bool ok_ = false;
 };
 
@@ -78,7 +78,7 @@ class TopicNeedsComponent {
  private:
   friend class TopicNeedsModule;
   Zone zone_ = Zone::Count_;
-  char module_[SAILLANCE_SEGMENT_MAX + 1] = {0};
+  char module_[CEXII_SEGMENT_MAX + 1] = {0};
   bool ok_ = false;
 };
 
@@ -124,10 +124,10 @@ struct Message {
   uint64_t ts = 0;
   uint32_t seq = 0;
   bool isText = false;
-  char text[SAILLANCE_TEXT_MAX + 1] = {0};
+  char text[CEXII_TEXT_MAX + 1] = {0};
   uint8_t count = 0;  // nb de valeurs (si float)
-  char keys[SAILLANCE_MAX_KEYS][SAILLANCE_KEY_MAX + 1] = {{0}};
-  float values[SAILLANCE_MAX_KEYS] = {0};
+  char keys[CEXII_MAX_KEYS][CEXII_KEY_MAX + 1] = {{0}};
+  float values[CEXII_MAX_KEYS] = {0};
 
   bool has(const char* key) const;
   float get(const char* key, float fallback = 0.0f) const;
@@ -166,8 +166,8 @@ struct OutChannel {
 
 struct FloatChannel : OutChannel {
   uint8_t count = 0;
-  char keys[SAILLANCE_MAX_KEYS][SAILLANCE_KEY_MAX + 1] = {{0}};
-  float values[SAILLANCE_MAX_KEYS] = {0};
+  char keys[CEXII_MAX_KEYS][CEXII_KEY_MAX + 1] = {{0}};
+  float values[CEXII_MAX_KEYS] = {0};
   bool warnedKey = false, warnedRange = false;
 
   bool addKey(const char* key);
@@ -176,7 +176,7 @@ struct FloatChannel : OutChannel {
 };
 
 struct TextChannel : OutChannel {
-  char text[SAILLANCE_TEXT_MAX + 1] = {0};
+  char text[CEXII_TEXT_MAX + 1] = {0};
   bool warnedLen = false;
 
   void set(const char* s);
@@ -223,4 +223,4 @@ size_t buildInfosPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, const
 // Enveloppe seule : {"v":1,"ts":..,"seq":..}
 size_t buildPingPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq);
 
-}  // namespace saillance
+}  // namespace cexii

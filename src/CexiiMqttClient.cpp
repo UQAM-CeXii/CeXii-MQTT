@@ -5,11 +5,11 @@
 #include <freertos/queue.h>
 #include <mqtt_client.h>
 
-#include "Saillance.h"
+#include "CexiiMqtt.h"
 
-namespace saillance {
+namespace cexii {
 
-bool SaillanceClass::startMqtt_() {
+bool CexiiMqttClass::startMqtt_() {
   if (!client_) {
     esp_mqtt_client_config_t cfg = {};
     const char* pass = mqttPass_[0] ? mqttPass_ : nullptr;
@@ -37,7 +37,7 @@ bool SaillanceClass::startMqtt_() {
       reportIssue(Severity::Critical, ErrorCode::MqttError, "mqtt", "esp_mqtt_client_init a echoue");
       return false;
     }
-    esp_mqtt_client_register_event(client_, MQTT_EVENT_ANY, &SaillanceClass::onMqttEvent_, this);
+    esp_mqtt_client_register_event(client_, MQTT_EVENT_ANY, &CexiiMqttClass::onMqttEvent_, this);
     say("MQTT : connexion a %s en tant que \"%s\"...", uri_, username_);
     esp_mqtt_client_start(client_);
   } else {
@@ -47,14 +47,14 @@ bool SaillanceClass::startMqtt_() {
   return true;
 }
 
-void SaillanceClass::stopMqtt_() {
+void CexiiMqttClass::stopMqtt_() {
   if (client_) esp_mqtt_client_stop(client_);
   mqttStarted_ = false;
   mqttConnected_ = false;
 }
 
 // Démarre / arrête MQTT selon l'état du réseau (appelé depuis update()).
-void SaillanceClass::syncMqtt_() {
+void CexiiMqttClass::syncMqtt_() {
   if (netUp_ && !mqttStarted_)
     startMqtt_();
   else if (!netUp_ && mqttStarted_)
@@ -69,14 +69,14 @@ void SaillanceClass::syncMqtt_() {
   }
 }
 
-bool SaillanceClass::publish_(const char* topic, const char* data, size_t len, int qos) {
+bool CexiiMqttClass::publish_(const char* topic, const char* data, size_t len, int qos) {
   if (!client_ || !mqttConnected_) return false;
   // Envoi direct. Surtout pas esp_mqtt_client_enqueue(store=true) : la file interne d'esp-mqtt ne
   // libère qu'environ 1 message par seconde et jette les messages après 30 s.
   return esp_mqtt_client_publish(client_, topic, data, (int)len, qos, 0) >= 0;
 }
 
-void SaillanceClass::subscribeAll_() {
+void CexiiMqttClass::subscribeAll_() {
   if (!pingSubscribed_ && esp_mqtt_client_subscribe(client_, pingTopic_, 0) >= 0) pingSubscribed_ = true;
   for (InputChannel* in : inputs_) {
     if (in->subscribed) continue;
@@ -89,7 +89,7 @@ void SaillanceClass::subscribeAll_() {
 
 // Les messages reçus arrivent dans la tâche MQTT ; on les passe à loop() par une file,
 // pour que les fonctions de l'utilisateur s'exécutent toujours dans loop().
-void SaillanceClass::dispatchIncoming_() {
+void CexiiMqttClass::dispatchIncoming_() {
   if (!incomingQueue_) return;
   Incoming it;
   for (int budget = 8; budget > 0 && xQueueReceive((QueueHandle_t)incomingQueue_, &it, 0) == pdTRUE; budget--) {
@@ -105,14 +105,14 @@ void SaillanceClass::dispatchIncoming_() {
   }
 }
 
-void SaillanceClass::onMqttEvent_(void*, const char*, int32_t id, void* data) {
+void CexiiMqttClass::onMqttEvent_(void*, const char*, int32_t id, void* data) {
   const uint32_t arrivalUs = micros();  // pour mesurer la latence du ping le plus précisément possible
-  SaillanceClass& s = Saillance;
+  CexiiMqttClass& s = CexiiMqtt;
   esp_mqtt_event_handle_t ev = (esp_mqtt_event_handle_t)data;
   static bool failureShown = false;
   // Réassemblage des gros messages (tables) reçus en plusieurs morceaux
   static char* asmBuf = nullptr;
-  static char asmTopic[SAILLANCE_TOPIC_MAX + 1];
+  static char asmTopic[CEXII_TOPIC_MAX + 1];
   static int asmTotal = 0;
 
   switch ((esp_mqtt_event_id_t)id) {
@@ -154,7 +154,7 @@ void SaillanceClass::onMqttEvent_(void*, const char*, int32_t id, void* data) {
         free(asmBuf);
         asmBuf = nullptr;
       }
-      if (ev->topic_len <= 0 || ev->topic_len > SAILLANCE_TOPIC_MAX || ev->total_data_len > SAILLANCE_TABLE_MAX_BYTES) {
+      if (ev->topic_len <= 0 || ev->topic_len > CEXII_TOPIC_MAX || ev->total_data_len > CEXII_TABLE_MAX_BYTES) {
         s.reportError("input", "message recu trop gros ou topic invalide, ignore", Severity::Warning, ErrorCode::ApiBadMessage);
         break;
       }
@@ -180,7 +180,7 @@ void SaillanceClass::onMqttEvent_(void*, const char*, int32_t id, void* data) {
       it.topic[ev->topic_len] = '\0';
       it.len = ev->total_data_len;
 
-      if (ev->data_len == ev->total_data_len && ev->total_data_len <= SAILLANCE_PAYLOAD_MAX) {
+      if (ev->data_len == ev->total_data_len && ev->total_data_len <= CEXII_PAYLOAD_MAX) {
         memcpy(it.payload, ev->data, ev->data_len);  // petit message : tout est dans la file
         it.payload[ev->data_len] = '\0';
         if (s.incomingQueue_) xQueueSend((QueueHandle_t)s.incomingQueue_, &it, 0);
@@ -221,4 +221,4 @@ void SaillanceClass::onMqttEvent_(void*, const char*, int32_t id, void* data) {
   }
 }
 
-}  // namespace saillance
+}  // namespace cexii

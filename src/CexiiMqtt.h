@@ -1,22 +1,22 @@
 #pragma once
 // ============================================================================
-//  Saillance : envoyer et recevoir des messages MQTT (ESP32 / ESP32 PoE)
+//  CexiiMqtt : envoyer et recevoir des messages MQTT (ESP32 / ESP32 PoE)
 //
 //  Utilisation minimale :
 //
-//    #include <Saillance.h>
+//    #include <CexiiMqtt.h>
 //
 //    FloatOut lumiere;
 //
 //    void setup() {
 //      Serial.begin(115200);
-//      Saillance.beginWifi(Board::Esp32, "controlbouton", "MonWifi", "MotDePasse");
-//      Topic t = Saillance.topic(Zone::Jam, "lumiere", "bande1", "couleur");
-//      lumiere = Saillance.floatOut(t, {"r", "g", "b"});
+//      CexiiMqtt.beginWifi(Board::Esp32, "controlbouton", "MonWifi", "MotDePasse");
+//      Topic t = CexiiMqtt.topic(Zone::Jam, "lumiere", "bande1", "couleur");
+//      lumiere = CexiiMqtt.floatOut(t, {"r", "g", "b"});
 //    }
 //
 //    void loop() {
-//      Saillance.update();              // OBLIGATOIRE, à chaque tour de loop()
+//      CexiiMqtt.update();              // OBLIGATOIRE, à chaque tour de loop()
 //      lumiere.set("r", 0.5);           // valeurs entre 0 et 1
 //    }
 // ============================================================================
@@ -26,13 +26,13 @@
 #include <initializer_list>
 #include <vector>
 
-#include "SaillanceConfig.h"
-#include "SaillanceCore.h"
-#include "SaillanceTypes.h"
+#include "CexiiMqttConfig.h"
+#include "CexiiMqttCore.h"
+#include "CexiiMqttTypes.h"
 
 typedef struct esp_mqtt_client* esp_mqtt_client_handle_t;
 
-namespace saillance {
+namespace cexii {
 
 // ---------------------------------------------------------------------------
 //  Sortie de nombres : une liste de valeurs (0..1), chacune avec sa clé.
@@ -48,7 +48,7 @@ class FloatOut {
   bool valid() const { return ch_ != nullptr; }
 
  private:
-  friend class SaillanceClass;
+  friend class CexiiMqttClass;
   explicit FloatOut(FloatChannel* ch) : ch_(ch) {}
   FloatChannel* ch_ = nullptr;
 };
@@ -65,7 +65,7 @@ class TextOut {
   bool valid() const { return ch_ != nullptr; }
 
  private:
-  friend class SaillanceClass;
+  friend class CexiiMqttClass;
   explicit TextOut(TextChannel* ch) : ch_(ch) {}
   TextChannel* ch_ = nullptr;
 };
@@ -88,7 +88,7 @@ class TableOut {
   bool valid() const { return ch_ != nullptr; }
 
  private:
-  friend class SaillanceClass;
+  friend class CexiiMqttClass;
   explicit TableOut(TableChannel* ch) : ch_(ch) {}
   TableChannel* ch_ = nullptr;
 };
@@ -116,17 +116,17 @@ class Input {
   void onMessage(MessageCallback cb);   // appelé dans loop() via update()
 
  private:
-  friend class SaillanceClass;
+  friend class CexiiMqttClass;
   explicit Input(InputChannel* ch) : ch_(ch) {}
   InputChannel* ch_ = nullptr;
 };
 
 // ---------------------------------------------------------------------------
-//  Objet principal : utiliser l'instance globale "Saillance".
+//  Objet principal : utiliser l'instance globale "CexiiMqtt".
 // ---------------------------------------------------------------------------
-class SaillanceClass {
+class CexiiMqttClass {
  public:
-  SaillanceClass();
+  CexiiMqttClass();
 
   // --- 1. Démarrage ---------------------------------------------------------
   // deviceName : lettres et chiffres seulement, 24 caractères max.
@@ -144,7 +144,7 @@ class SaillanceClass {
   void update();
 
   // --- 3. Construire un topic (guidé) ---------------------------------------
-  //   Saillance.zone(Zone::Jam).module("lumiere").component("bande1").property("couleur")
+  //   CexiiMqtt.zone(Zone::Jam).module("lumiere").component("bande1").property("couleur")
   TopicNeedsModule zone(Zone z) { return TopicNeedsModule(z); }
   //   ou en une ligne :
   Topic topic(Zone z, const char* module, const char* component, const char* property) {
@@ -184,19 +184,19 @@ class SaillanceClass {
   struct Incoming {
     uint32_t len;
     char* big;  // message > 512 octets (table) : copie sur le tas, libérée par dispatchIncoming_
-    char topic[SAILLANCE_TOPIC_MAX + 1];
-    char payload[SAILLANCE_PAYLOAD_MAX + 1];
+    char topic[CEXII_TOPIC_MAX + 1];
+    char payload[CEXII_PAYLOAD_MAX + 1];
   };
 
   bool begin_(Board board, const char* deviceName, Link link);
   uint64_t timestampMs() const;
   void say(const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 
-  // réseau (SaillanceNet.cpp)
+  // réseau (CexiiMqttNet.cpp)
   bool startNetwork_();
   static void onNetEvent_(arduino_event_id_t event, arduino_event_info_t info);
 
-  // MQTT (SaillanceMqtt.cpp)
+  // MQTT (CexiiMqttMqtt.cpp)
   bool startMqtt_();
   void stopMqtt_();
   bool publish_(const char* topic, const char* data, size_t len, int qos);
@@ -205,7 +205,7 @@ class SaillanceClass {
   void dispatchIncoming_();
   static void onMqttEvent_(void* arg, const char* base, int32_t id, void* data);
 
-  // système (SaillanceSystem.cpp)
+  // système (CexiiMqttSystem.cpp)
   void startSystem_();
   void publishErrors_();
   void publishInfos_(uint32_t now);
@@ -220,18 +220,18 @@ class SaillanceClass {
   Board board_ = Board::Esp32;
   bool started_ = false;
   bool debug_ = true;
-  char username_[SAILLANCE_NAME_MAX + 16] = {0};
-  char hostname_[SAILLANCE_NAME_MAX + 16] = {0};
+  char username_[CEXII_NAME_MAX + 16] = {0};
+  char hostname_[CEXII_NAME_MAX + 16] = {0};
   char ssid_[33] = {0};
   char wifiPass_[65] = {0};
   char mqttPass_[65] = {0};
   char ntpServer_[48] = "pool.ntp.org";
   char uri_[64] = {0};
-  char errorTopic_[SAILLANCE_TOPIC_MAX + 1] = {0};
-  char infosTopic_[SAILLANCE_TOPIC_MAX + 1] = {0};
-  char pingTopic_[SAILLANCE_TOPIC_MAX + 1] = {0};
+  char errorTopic_[CEXII_TOPIC_MAX + 1] = {0};
+  char infosTopic_[CEXII_TOPIC_MAX + 1] = {0};
+  char pingTopic_[CEXII_TOPIC_MAX + 1] = {0};
   char appName_[48] = {0};
-  char payload_[SAILLANCE_PAYLOAD_MAX + 1] = {0};
+  char payload_[CEXII_PAYLOAD_MAX + 1] = {0};
 
   esp_mqtt_client_handle_t client_ = nullptr;
   volatile bool netUp_ = false;
@@ -272,12 +272,12 @@ class SaillanceClass {
   friend class TextOut;
 };
 
-}  // namespace saillance
+}  // namespace cexii
 
-extern saillance::SaillanceClass Saillance;
+extern cexii::CexiiMqttClass CexiiMqtt;
 
-// Pour ne pas avoir à écrire "saillance::" partout (désactiver avec
-// -DSAILLANCE_NO_USING dans platformio.ini si ça entre en conflit avec votre code).
-#ifndef SAILLANCE_NO_USING
-using namespace saillance;
+// Pour ne pas avoir à écrire "cexii::" partout (désactiver avec
+// -DCEXII_NO_USING dans platformio.ini si ça entre en conflit avec votre code).
+#ifndef CEXII_NO_USING
+using namespace cexii;
 #endif

@@ -1,8 +1,8 @@
 #pragma once
 #include <stdint.h>
-#include "SaillanceConfig.h"
+#include "CexiiMqttConfig.h"
 
-namespace saillance {
+namespace cexii {
 
 // Type de carte : sert de préfixe au username EMQX (ex: "esp32poeiso_monnom").
 enum class Board : uint8_t {
@@ -37,12 +37,12 @@ enum class ErrorCode : uint16_t {
   User = 900,           // erreur envoyée par le programme de l'utilisateur
 };
 
-// Zones : générées à partir de SAILLANCE_ZONES (SaillanceConfig.h).
+// Zones : générées à partir de CEXII_ZONES (CexiiMqttConfig.h).
 enum class Zone : uint8_t {
-#define SAILLANCE_X(id, text) id,
-  SAILLANCE_ZONES(SAILLANCE_X)
-#undef SAILLANCE_X
+#define CEXII_X(id, text) id,
+  CEXII_ZONES(CEXII_X)
+#undef CEXII_X
       Count_
 };
 
-}  // namespace saillance
+}  // namespace cexii

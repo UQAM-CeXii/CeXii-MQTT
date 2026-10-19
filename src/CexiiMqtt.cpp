@@ -1,13 +1,13 @@
-#include "Saillance.h"
+#include "CexiiMqtt.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <stdarg.h>
 #include <sys/time.h>
 
-SaillanceClass Saillance;
+CexiiMqttClass CexiiMqtt;
 
-namespace saillance {
+namespace cexii {
 
 // ============================================================================
 //  Poignées (FloatOut / TextOut / Input)
@@ -17,7 +17,7 @@ static void warnInvalidHandle(const char* what) {
   uint32_t now = millis();
   if (last == 0 || now - last > 5000) {
     last = now ? now : 1;
-    Serial.printf("[Saillance] %s non valide : la creation a echoue (voir message plus haut)\n", what);
+    Serial.printf("[CeXii MQTT] %s non valide : la creation a echoue (voir message plus haut)\n", what);
   }
 }
 
@@ -92,34 +92,34 @@ void Input::onMessage(MessageCallback cb) {
 }
 
 // ============================================================================
-//  SaillanceClass : démarrage et API
+//  CexiiMqttClass : démarrage et API
 // ============================================================================
-SaillanceClass::SaillanceClass() { setIssueHook(&SaillanceClass::onIssue_); }
+CexiiMqttClass::CexiiMqttClass() { setIssueHook(&CexiiMqttClass::onIssue_); }
 
-void SaillanceClass::say(const char* fmt, ...) {
+void CexiiMqttClass::say(const char* fmt, ...) {
   if (!debug_) return;
   char line[160];
   va_list ap;
   va_start(ap, fmt);
   vsnprintf(line, sizeof(line), fmt, ap);
   va_end(ap);
-  Serial.print("[Saillance] ");
+  Serial.print("[CeXii MQTT] ");
   Serial.println(line);
 }
 
-void SaillanceClass::setMqttPassword(const char* password) {
+void CexiiMqttClass::setMqttPassword(const char* password) {
   strncpy(mqttPass_, password ? password : "", sizeof(mqttPass_) - 1);
 }
-void SaillanceClass::setNtpServer(const char* server) {
+void CexiiMqttClass::setNtpServer(const char* server) {
   if (server && server[0]) strncpy(ntpServer_, server, sizeof(ntpServer_) - 1);
 }
-void SaillanceClass::setDebug(bool on) { debug_ = on; }
-void SaillanceClass::setAppName(const char* name) {
+void CexiiMqttClass::setDebug(bool on) { debug_ = on; }
+void CexiiMqttClass::setAppName(const char* name) {
   strncpy(appName_, name ? name : "", sizeof(appName_) - 1);
   appName_[sizeof(appName_) - 1] = '\0';
 }
 
-bool SaillanceClass::beginWifi(Board board, const char* deviceName, const char* ssid, const char* password) {
+bool CexiiMqttClass::beginWifi(Board board, const char* deviceName, const char* ssid, const char* password) {
   if (!ssid || !ssid[0]) {
     reportIssue(Severity::Error, ErrorCode::ApiBadConfig, "begin", "le nom du reseau WiFi (ssid) est vide");
     return false;
@@ -129,7 +129,7 @@ bool SaillanceClass::beginWifi(Board board, const char* deviceName, const char* 
   return begin_(board, deviceName, Link::Wifi);
 }
 
-bool SaillanceClass::beginEthernet(Board board, const char* deviceName) {
+bool CexiiMqttClass::beginEthernet(Board board, const char* deviceName) {
   if (!boardHasEthernet(board)) {
     reportIssue(Severity::Error, ErrorCode::ApiBadConfig, "begin",
                 "cette carte n'a pas d'Ethernet : utilisez beginWifi() ou Board::Esp32Poe / Esp32PoeIso");
@@ -138,7 +138,7 @@ bool SaillanceClass::beginEthernet(Board board, const char* deviceName) {
   return begin_(board, deviceName, Link::Ethernet);
 }
 
-bool SaillanceClass::begin_(Board board, const char* deviceName, Link link) {
+bool CexiiMqttClass::begin_(Board board, const char* deviceName, Link link) {
   if (started_) {
     reportIssue(Severity::Warning, ErrorCode::ApiBadConfig, "begin", "begin deja appele, ignore");
     return false;
@@ -152,7 +152,7 @@ bool SaillanceClass::begin_(Board board, const char* deviceName, Link link) {
   strncpy(hostname_, username_, sizeof(hostname_) - 1);
   for (char* c = hostname_; *c; c++)
     if (*c == '_') *c = '-';
-  snprintf(uri_, sizeof(uri_), "ws://%s:%d%s", SAILLANCE_BROKER_HOST, SAILLANCE_BROKER_PORT, SAILLANCE_BROKER_PATH);
+  snprintf(uri_, sizeof(uri_), "ws://%s:%d%s", CEXII_BROKER_HOST, CEXII_BROKER_PORT, CEXII_BROKER_PATH);
 
   board_ = board;
   link_ = link;
@@ -162,8 +162,8 @@ bool SaillanceClass::begin_(Board board, const char* deviceName, Link link) {
   startSystem_();  // capture des erreurs, mesure du CPU, cause du dernier redémarrage
   say("appareil : %s", username_);
   say("topic erreurs : %s", errorTopic_);
-  say("topic infos   : %s (toutes les %d s)", infosTopic_, SAILLANCE_INFOS_PERIOD_MS / 1000);
-  say("topic ping    : %s (toutes les %d s)", pingTopic_, SAILLANCE_PING_PERIOD_MS / 1000);
+  say("topic infos   : %s (toutes les %d s)", infosTopic_, CEXII_INFOS_PERIOD_MS / 1000);
+  say("topic ping    : %s (toutes les %d s)", pingTopic_, CEXII_PING_PERIOD_MS / 1000);
   if (!startNetwork_()) return false;
 
   started_ = true;
@@ -171,7 +171,7 @@ bool SaillanceClass::begin_(Board board, const char* deviceName, Link link) {
   return true;
 }
 
-uint64_t SaillanceClass::timestampMs() const {
+uint64_t CexiiMqttClass::timestampMs() const {
   struct timeval tv;
   gettimeofday(&tv, nullptr);
   if (tv.tv_sec > 1700000000L)  // l'heure a été synchronisée (NTP)
@@ -179,7 +179,7 @@ uint64_t SaillanceClass::timestampMs() const {
   return (uint64_t)millis();  // sinon : millisecondes depuis le démarrage
 }
 
-FloatOut SaillanceClass::floatOut(const Topic& topic, std::initializer_list<const char*> keys, uint8_t maxHz,
+FloatOut CexiiMqttClass::floatOut(const Topic& topic, std::initializer_list<const char*> keys, uint8_t maxHz,
                                   SendMode mode) {
   if (!topic.valid()) {
     reportIssue(Severity::Error, ErrorCode::ApiBadTopic, "floatOut", "topic invalide (voir erreur plus haut)");
@@ -198,7 +198,7 @@ FloatOut SaillanceClass::floatOut(const Topic& topic, std::initializer_list<cons
     }
   }
   floatOuts_.push_back(ch);
-  char keyList[SAILLANCE_MAX_KEYS * (SAILLANCE_KEY_MAX + 1) + 1] = {0};
+  char keyList[CEXII_MAX_KEYS * (CEXII_KEY_MAX + 1) + 1] = {0};
   for (uint8_t i = 0; i < ch->count; i++) {
     if (i) strcat(keyList, ",");
     strcat(keyList, ch->keys[i]);
@@ -208,7 +208,7 @@ FloatOut SaillanceClass::floatOut(const Topic& topic, std::initializer_list<cons
   return FloatOut(ch);
 }
 
-TextOut SaillanceClass::textOut(const Topic& topic, uint8_t maxHz, SendMode mode) {
+TextOut CexiiMqttClass::textOut(const Topic& topic, uint8_t maxHz, SendMode mode) {
   if (!topic.valid()) {
     reportIssue(Severity::Error, ErrorCode::ApiBadTopic, "textOut", "topic invalide (voir erreur plus haut)");
     return TextOut();
@@ -221,13 +221,13 @@ TextOut SaillanceClass::textOut(const Topic& topic, uint8_t maxHz, SendMode mode
   return TextOut(ch);
 }
 
-TableOut SaillanceClass::tableOut(const Topic& topic, uint8_t maxHz, SendMode mode) {
+TableOut CexiiMqttClass::tableOut(const Topic& topic, uint8_t maxHz, SendMode mode) {
   if (!topic.valid()) {
     reportIssue(Severity::Error, ErrorCode::ApiBadTopic, "tableOut", "topic invalide (voir erreur plus haut)");
     return TableOut();
   }
   if (!tablePayload_) {
-    tablePayload_ = (char*)malloc(SAILLANCE_TABLE_MAX_BYTES + 1);
+    tablePayload_ = (char*)malloc(CEXII_TABLE_MAX_BYTES + 1);
     if (!tablePayload_) {
       reportIssue(Severity::Error, ErrorCode::ApiBadConfig, "tableOut", "memoire insuffisante pour une table");
       return TableOut();
@@ -241,7 +241,7 @@ TableOut SaillanceClass::tableOut(const Topic& topic, uint8_t maxHz, SendMode mo
   return TableOut(ch);
 }
 
-Input SaillanceClass::input(const Topic& topic) {
+Input CexiiMqttClass::input(const Topic& topic) {
   if (!topic.valid()) {
     reportIssue(Severity::Error, ErrorCode::ApiBadTopic, "input", "topic invalide (voir erreur plus haut)");
     return Input();
@@ -253,7 +253,7 @@ Input SaillanceClass::input(const Topic& topic) {
   return Input(ch);
 }
 
-Input SaillanceClass::input(const Topic& topic, MessageCallback cb) {
+Input CexiiMqttClass::input(const Topic& topic, MessageCallback cb) {
   Input in = input(topic);
   in.onMessage(cb);
   return in;
@@ -262,7 +262,7 @@ Input SaillanceClass::input(const Topic& topic, MessageCallback cb) {
 // ============================================================================
 //  update() : appelée à chaque tour de loop()
 // ============================================================================
-void SaillanceClass::update() {
+void CexiiMqttClass::update() {
   if (!started_) return;
   uint32_t now = millis();
   frames_++;
@@ -282,7 +282,7 @@ void SaillanceClass::update() {
   publishInfos_(now);
 }
 
-void SaillanceClass::publishOutputs_(uint32_t now) {
+void CexiiMqttClass::publishOutputs_(uint32_t now) {
   const bool online = mqttConnected_;
 
   for (FloatChannel* ch : floatOuts_) {
@@ -321,10 +321,10 @@ void SaillanceClass::publishOutputs_(uint32_t now) {
       }
       continue;
     }
-    size_t n = ch->build(tablePayload_, SAILLANCE_TABLE_MAX_BYTES + 1, timestampMs());
+    size_t n = ch->build(tablePayload_, CEXII_TABLE_MAX_BYTES + 1, timestampMs());
     if (n == 0) {
       reportIssue(Severity::Error, ErrorCode::ApiBadValue, "table", "table trop grosse (max %d octets) : non envoyee",
-                  SAILLANCE_TABLE_MAX_BYTES);
+                  CEXII_TABLE_MAX_BYTES);
       droppedFrames_++;
     } else if (!publish_(ch->topic.c_str(), tablePayload_, n, 0)) {
       droppedFrames_++;
@@ -333,4 +333,4 @@ void SaillanceClass::publishOutputs_(uint32_t now) {
   }
 }
 
-}  // namespace saillance
+}  // namespace cexii

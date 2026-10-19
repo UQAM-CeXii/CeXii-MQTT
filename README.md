@@ -1,40 +1,45 @@
-# Saillance (bibliothèque MQTT pour ESP32 / ESP32 PoE)
+# CeXii MQTT — envoyer et recevoir des messages avec un ESP32
 
-Envoyer et recevoir des messages MQTT vers le broker EMQX de Saillance
-(`ws://10.0.21.210:8083`), en **WiFi** ou en **Ethernet filaire**, sans avoir à connaître MQTT.
+Cette bibliothèque permet à une carte **ESP32** (ou **ESP32 PoE**) d'envoyer et de recevoir des
+messages avec le reste du système CeXii (TouchDesigner, autres cartes…), en **WiFi** ou avec un
+**câble réseau**. Vous n'avez pas besoin de connaître MQTT.
 
-* Cartes : ESP32 et ESP32 PoE (Olimex ESP32-POE, ESP32-POE-ISO).
-* Fonctionne avec l'**Arduino IDE** et avec **PlatformIO**.
-* Construite sur `esp-mqtt` (inclus dans le framework ESP32) et `ArduinoJson`.
+```
+  Votre carte ESP32  ──── WiFi ou câble ────►  Serveur (broker)  ────►  TouchDesigner,
+                     ◄─────────────────────    10.0.21.210       ◄────  autres cartes…
+```
 
-> Version 0.1.0. Elle compile et ses règles de validation sont testées, mais elle n'a pas encore été
-> éprouvée sur les cartes ni contre le broker. Signalez ce qui ne se comporte pas comme décrit ici.
+**Sur cette page** : [1. Installer](#1-installer) · [2. Premier programme](#2-votre-premier-programme) ·
+[3. Comprendre](#3-comprendre-en-une-minute) · [4. Je veux…](#4-je-veux) · [5. Limites](#5-les-limites) ·
+[6. Envois automatiques](#6-ce-que-la-carte-envoie-toute-seule) · [7. Exemples](#7-les-exemples) ·
+[8. Dépannage](#8-ça-ne-marche-pas-)
 
-**Sommaire** : [Installer](#1-installer) · [Premier programme](#2-premier-programme) ·
-[Ce qui s'affiche](#3-ce-qui-saffiche-dans-le-moniteur-série) · [Nom de l'appareil](#4-le-nom-de-lappareil) ·
-[Topics](#5-construire-un-topic) · [Envoyer](#6-envoyer) · [Recevoir](#7-recevoir) ·
-[Messages automatiques](#8-messages-automatiques-rien-à-faire) · [Problèmes](#9-en-cas-de-problème) ·
-[Configuration](#10-configuration-pour-les-mainteneurs)
+> La bibliothèque compile et ses règles sont testées, mais elle n'a pas encore été éprouvée à fond sur
+> les cartes. Si quelque chose ne se comporte pas comme décrit ici, notez-le : c'est utile.
 
 ---
 
 ## 1. Installer
 
-### Avec l'Arduino IDE
+### Dans l'Arduino IDE
 
-1. **Outils > Gestionnaire de cartes** : installer « esp32 » (Espressif). Testé avec la version 2.0.17.
-2. **Outils > Gérer les bibliothèques** : installer « ArduinoJson » (version 7 ou plus).
-3. Installer Saillance : **Croquis > Inclure une bibliothèque > Ajouter la bibliothèque .ZIP**
-   (ou copier le dossier dans `Documents/Arduino/libraries/`).
-   Si une ancienne version est déjà installée, supprimez d'abord son dossier.
-4. **Outils > Type de carte** : « ESP32 Dev Module », ou « OLIMEX ESP32-POE-ISO » / « OLIMEX ESP32-POE ».
-5. **Outils > Core Debug Level > Error** : pour que les erreurs `log_e()` remontent aussi vers MQTT.
-6. Ouvrir un exemple : **Fichier > Exemples > Saillance**.
-7. **Outils > Moniteur série**, vitesse **115200**.
+1. **Outils > Gestionnaire de cartes** → cherchez **esp32** (par Espressif) → *Installer*.
+   (Testé avec la version 2.0.17.)
+2. **Outils > Gérer les bibliothèques** → cherchez **ArduinoJson** → *Installer* (version 7 ou plus).
+3. **Croquis > Inclure une bibliothèque > Ajouter la bibliothèque .ZIP…** → choisissez le fichier
+   `CeXii_MQTT.zip`.
+   *Si une ancienne version est déjà installée, supprimez d'abord son dossier (`Saillance` ou `CeXii_MQTT`) dans `Documents/Arduino/libraries/`.*
+4. **Outils > Type de carte** → **ESP32 Dev Module**
+   (ou **OLIMEX ESP32-POE** / **OLIMEX ESP32-POE-ISO** pour les cartes PoE).
+5. **Outils > Core Debug Level** → **Error** (pour que les erreurs de la carte soient aussi signalées).
+6. Redémarrez l'Arduino IDE, puis ouvrez un exemple : **Fichier > Exemples > CeXii MQTT > 01_Envoyer_nombres**.
+7. Branchez la carte, choisissez le **Port** dans le menu Outils, puis cliquez *Téléverser* (la flèche →).
+8. Ouvrez **Outils > Moniteur série** et réglez la vitesse sur **115200**.
 
-### Avec PlatformIO
+<details>
+<summary><b>Avec PlatformIO</b> (cliquez pour afficher)</summary>
 
-Dans le `platformio.ini` de votre projet :
+Dans le fichier `platformio.ini` de votre projet :
 
 ```ini
 [env:esp32]
@@ -42,413 +47,275 @@ platform = espressif32
 board = esp32dev            ; ESP32-POE : esp32-poe     ESP32-POE-ISO : esp32-poe-iso
 framework = arduino
 monitor_speed = 115200
-build_flags = -DCORE_DEBUG_LEVEL=1   ; pour que les erreurs log_e() remontent aussi
+build_flags = -DCORE_DEBUG_LEVEL=1
 lib_deps =
-    https://github.com/VOTRE-COMPTE/saillance-mqtt.git
+    https://github.com/VOTRE-COMPTE/cexii-mqtt.git
 ```
 
-### Les exemples
-
-| Dossier | Ce qu'il montre |
-|---|---|
-| `01_envoi_wifi` | envoyer 3 valeurs (r, g, b) en continu, en WiFi |
-| `02_ethernet_bouton` | Ethernet filaire sur ESP32-POE-ISO, un bouton en mode événement |
-| `03_reception` | recevoir des valeurs, par lecture et par fonction appelée automatiquement |
-| `04_texte` | envoyer du texte |
-| `05_table` | envoyer et recevoir une table (liste de rangées de textes) |
+Chaque dossier de `examples/` contient aussi un `platformio.ini` prêt à l'emploi.
+</details>
 
 ---
 
-## 2. Premier programme
+## 2. Votre premier programme
+
+Ouvrez l'exemple **01_Envoyer_nombres**. Voici l'essentiel :
 
 ```cpp
-#include <Saillance.h>
+#include <CexiiMqtt.h>
 
-FloatOut couleur;
+FloatOut couleur;                       // un "tuyau" pour envoyer des nombres
 
 void setup() {
   Serial.begin(115200);
 
-  // Type de carte, nom de l'appareil, WiFi
-  Saillance.beginWifi(Board::Esp32, "controlbouton", "NomDuWifi", "MotDePasse");
+  // ① Démarrer : type de carte, nom de votre appareil, WiFi
+  CexiiMqtt.beginWifi(Board::Esp32, "monappareil", "NomDuWifi", "MotDePasse");
 
-  // Où envoyer : zone / module / composante / propriété
-  Topic topic = Saillance.topic(Zone::Jam, "lumiere", "bande1", "couleur");
+  // ② Choisir où envoyer : zone, module, composante, propriété
+  Topic topic = CexiiMqtt.topic(Zone::Globale, "lumiere", "bande1", "couleur");
 
-  // Les valeurs envoyées, chacune avec sa clé ; 20 envois/s max ; en continu
-  couleur = Saillance.floatOut(topic, {"r", "g", "b"}, 20, SendMode::Continuous);
+  // ③ Créer l'envoi : le topic, le nom de chaque valeur, 20 envois/s max, en continu
+  couleur = CexiiMqtt.floatOut(topic, { "r", "g", "b" }, 20, SendMode::Continuous);
 }
 
 void loop() {
-  Saillance.update();        // OBLIGATOIRE à chaque tour de loop()
+  CexiiMqtt.update();                   // ④ OBLIGATOIRE, à chaque tour de loop()
 
-  couleur.set("r", 0.5);     // toujours entre 0.0 et 1.0
+  couleur.set("r", 0.5);                // ⑤ donner les valeurs, toujours entre 0.0 et 1.0
   couleur.set("g", 0.2);
   couleur.set("b", 1.0);
 }
 ```
 
+**À modifier avant de téléverser** : le nom du WiFi et son mot de passe. Pour le nom de l'appareil,
+choisissez des lettres et des chiffres seulement (24 au maximum), **différent pour chaque carte**.
+
 **Les trois règles à retenir**
-
-1. Appelez `Saillance.update()` à **chaque** tour de `loop()`.
+1. Appelez `CexiiMqtt.update()` à **chaque** tour de `loop()`.
 2. Évitez les longs `delay()` dans `loop()` : ils ralentissent les envois et la réception.
-3. Toutes les valeurs numériques sont des nombres de **0.0 à 1.0**.
+3. Les nombres sont **toujours entre 0.0 et 1.0**.
 
-### En Ethernet (cartes Olimex PoE)
+Dans le moniteur série, vous devriez voir :
 
-```cpp
-Saillance.beginEthernet(Board::Esp32PoeIso, "controlbouton");   // ou Board::Esp32Poe
+```
+[CeXii MQTT] appareil : esp32_monappareil
+[CeXii MQTT] topic erreurs : saillance/sys/esp32_monappareil/error
+[CeXii MQTT] topic infos   : saillance/sys/esp32_monappareil/infos (toutes les 5 s)
+[CeXii MQTT] topic ping    : saillance/sys/esp32_monappareil/ping (toutes les 60 s)
+[CeXii MQTT] WiFi : connexion a "NomDuWifi"...
+[CeXii MQTT] envoi    -> saillance/globale/lumiere/bande1/couleur  [r,g,b]  max 20 Hz, continu
+[CeXii MQTT] WiFi connecte, IP 10.0.21.57
+[CeXii MQTT] MQTT : connexion a ws://10.0.21.210:8083/mqtt en tant que "esp32_monappareil"...
+[CeXii MQTT] MQTT connecte
 ```
 
-Le reste du programme est identique. `beginEthernet` est refusé avec `Board::Esp32` (pas d'Ethernet).
-Les cartes PoE peuvent aussi utiliser `beginWifi`.
+Quand vous voyez **MQTT connecte**, ça marche. Pour regarder les messages, installez le logiciel
+gratuit [MQTTX](https://mqttx.app), connectez-le en WebSocket à `ws://10.0.21.210:8083/mqtt` et
+abonnez-vous à `saillance/#`.
+
+### Avec un câble réseau (cartes Olimex PoE)
+
+Remplacez la ligne ① par :
+
+```cpp
+CexiiMqtt.beginEthernet(Board::Esp32PoeIso, "monappareil");   // ou Board::Esp32Poe
+```
+
+Pas de nom de WiFi ni de mot de passe : le câble suffit. Tout le reste est identique
+(voir l'exemple **09_Ethernet_PoE**).
 
 ---
 
-## 3. Ce qui s'affiche dans le moniteur série
+## 3. Comprendre en une minute
 
-La bibliothèque raconte ce qu'elle fait, en français. Exemple avec l'exemple 1 :
+### Le topic : l'adresse d'un message
+
+Chaque message est envoyé à une « adresse » qu'on appelle **topic**. Elle a 5 parties :
 
 ```
-[Saillance] appareil : esp32_exemple1
-[Saillance] topic erreurs : saillance/sys/esp32_exemple1/error
-[Saillance] topic infos   : saillance/sys/esp32_exemple1/infos (toutes les 5 s)
-[Saillance] topic ping    : saillance/sys/esp32_exemple1/ping (toutes les 60 s)
-[Saillance] WiFi : connexion a "NomDuWifi"...
-[Saillance] envoi    -> saillance/jam/lumiere/bande1/couleur  [r,g,b]  max 20 Hz, continu
-[Saillance] WiFi connecte, IP 10.0.21.57
-[Saillance] MQTT : connexion a ws://10.0.21.210:8083/mqtt en tant que "esp32_exemple1"...
-[Saillance] MQTT connecte
+   saillance / globale / lumiere / bande1 / couleur
+       │         │         │         │         └─ propriété    (vous choisissez, 12 caractères max)
+       │         │         │         └─ composante               (vous choisissez, 12 max)
+       │         │         └─ module                              (vous choisissez, 12 max)
+       │         └─ zone : à choisir dans la liste → jam, ecrans, globale, regie
+       └─ toujours « saillance » (ajouté tout seul)
 ```
 
-Chaque topic d'envoi (`envoi ->`) ou de réception (`reception <-`) est affiché au moment où vous le créez.
-Les erreurs sont signalées avec leur source, par exemple `[Saillance] ERREUR (begin) : nom d'appareil ...`.
-`Saillance.setDebug(false)` (avant `begin`) coupe ces messages.
+* Dans le code, on écrit seulement : `CexiiMqtt.topic(Zone::Globale, "lumiere", "bande1", "couleur")`.
+* Pour les parties libres : lettres, chiffres, `_` ou `-`. Pas d'espace ni d'accent. Tout est mis en minuscules.
+* Dans l'éditeur, tapez `Zone::` et il vous propose la liste des zones.
+
+### Les trois formats de données
+
+| Format | Pour envoyer… | Dans le code | Exemple |
+|---|---|---|---|
+| **Nombres** | une ou plusieurs valeurs entre 0 et 1, chacune avec un nom (une « clé ») | `FloatOut` | r = 0.5, g = 0.2 |
+| **Texte** | une phrase | `TextOut` | "bonjour" |
+| **Table** | un tableau de textes (rangées × colonnes) | `TableOut` | `a / 0.1 / on` sur une rangée |
+
+### Les deux modes d'envoi
+
+* **`SendMode::Event`** — la carte n'envoie que **quand quelque chose change** (pratique pour un bouton).
+* **`SendMode::Continuous`** — la carte envoie **toujours**, à la cadence demandée, même si rien ne change.
+
+Dans les deux cas, vous choisissez une **cadence maximale** de 1 à 30 envois par seconde.
 
 ---
 
-## 4. Le nom de l'appareil
+## 4. Je veux…
 
-Le username MQTT (envoyé à EMQX) est `<carte>_<nom>` :
-
-| Carte | Préfixe |
-|---|---|
-| `Board::Esp32` | `esp32` |
-| `Board::Esp32Poe` | `esp32poe` |
-| `Board::Esp32PoeIso` | `esp32poeiso` |
-
-Exemple : `Board::Esp32PoeIso` + `"controlbouton"` → **`esp32poeiso_controlbouton`**.
-
-| Règle sur le nom choisi | Détail |
-|---|---|
-| Longueur | 24 caractères maximum (le préfixe s'ajoute en plus) |
-| Caractères | lettres et chiffres seulement (pas d'espace, d'accent, `_` ni `-`) |
-| Majuscules | converties en minuscules |
-
-* Un nom invalide est refusé : `begin` retourne `false` et le moniteur série dit pourquoi.
-* Deux appareils avec le même username se déconnectent l'un l'autre : choisissez des noms uniques.
-* Le username sert aussi de nom d'appareil sur le réseau (avec `-` à la place de `_`).
-* Si le broker exige un mot de passe : `Saillance.setMqttPassword("...")` avant `begin`.
-
----
-
-## 5. Construire un topic
-
-Le topic est `saillance / zone / module / composante / propriété`, par exemple
-`saillance/jam/lumiere/bande1/couleur`. « saillance » est toujours ajouté pour vous.
-Deux façons de le construire :
+### …envoyer des nombres
 
 ```cpp
-// En une ligne
-Topic t = Saillance.topic(Zone::Jam, "lumiere", "bande1", "couleur");
+FloatOut f;
+f = CexiiMqtt.floatOut(topic, { "r", "g", "b" }, 30, SendMode::Event);  // dans setup()
 
-// Guidé : l'éditeur propose l'étape suivante après chaque point
-Topic t = Saillance.zone(Zone::Jam).module("lumiere").component("bande1").property("couleur");
+f.set("r", 0.7);        // dans loop() : donner une valeur à une clé
 ```
+→ exemples **01_Envoyer_nombres** et **02_Envoyer_capteur** (lire un potentiomètre).
 
-| Niveau | Valeur | Règles |
-|---|---|---|
-| zone | à choisir dans la liste : `Zone::Jam`, `Zone::Ecrans`, `Zone::Globale`, `Zone::Regie` | pas de texte libre |
-| module | texte libre | 12 caractères max |
-| composante | texte libre | 12 caractères max |
-| propriété | texte libre | 12 caractères max |
+Les clés (`"r"`, `"g"`…) : 6 caractères maximum, lettres/chiffres/`_`. Jusqu'à 16 valeurs par topic.
 
-Les textes libres : lettres, chiffres, `_` ou `-`, convertis en minuscules.
-Un topic invalide est refusé avec un message qui dit quoi corriger, et les fonctions qui l'utilisent
-retournent un objet non valide (`valid()` vaut `false`).
-
-Pour ajouter une zone : voir [Configuration](#10-configuration-pour-les-mainteneurs).
-
----
-
-## 6. Envoyer
-
-### Des nombres
+### …envoyer du texte
 
 ```cpp
-FloatOut f = Saillance.floatOut(topic, {"r", "g", "b"}, 30, SendMode::Event);
-f.set("r", 0.7);
-f.trigger();            // forcer un envoi même sans changement
+TextOut t;
+t = CexiiMqtt.textOut(topic, 5, SendMode::Event);   // dans setup()
+
+t.set("bonjour");                                   // dans loop()
 ```
+→ exemple **03_Envoyer_texte**.
 
-Les paramètres de `floatOut` : le topic, la liste des **clés**, la **fréquence maximale** (par défaut 30),
-le **mode** (par défaut `Event`). Plusieurs valeurs peuvent partir dans un même message, une clé par valeur.
-
-### Du texte
+### …envoyer une table
 
 ```cpp
-TextOut t = Saillance.textOut(topic2);                // 30 Hz max, mode Event
-t.set("bonjour");
+TableOut tab;
+tab = CexiiMqtt.tableOut(topic, 5, SendMode::Event);   // dans setup()
+tab.addRow({ "a", "0.1", "on" });                      // ajouter une rangée
+tab.addRow({ "b", "0.5", "off" });
+
+tab.set(1, 2, "on");        // dans loop() : rangée 1, colonne 2
+tab.set(1, 1, 0.25);        // un nombre est converti en texte
 ```
+→ exemple **04_Envoyer_table**. Les rangées et colonnes se comptent à partir de 0.
 
-### Une table
-
-Une table est une **liste de rangées**, chaque rangée une liste de **textes** (même les nombres).
-Il n'y a jamais de noms de colonnes. La case de la rangée `y`, colonne `x`, est `val[y][x]`.
-
-```cpp
-TableOut t = Saillance.tableOut(topic3, 5, SendMode::Event);   // 5 envois/s max (défaut : 10)
-
-t.addRow({"a", "0.1", "on"});     // ajoute une rangée à la fin
-t.addRow({"b", "0.5", "off"});
-t.set(1, 2, "on");                // rangée 1, colonne 2 (la table s'agrandit au besoin)
-t.set(1, 1, 0.25f);               // un nombre est converti en texte : "0.25"
-t.clear();                        // vide la table
-```
-
-Maximum **64 rangées**, **16 colonnes** et **8 Ko** par message. Une case hors limites est refusée avec un
-avertissement ; une table qui dépasse 8 Ko n'est pas envoyée (erreur signalée). Les rangées peuvent avoir des
-longueurs différentes. Une table de 8 Ko à 30 Hz représente beaucoup de trafic : gardez une fréquence basse.
-
-### Les règles
-
-| Élément | Règle |
-|---|---|
-| Clés | 6 caractères max (lettres, chiffres, `_`), déclarées à la création, 16 par topic au plus |
-| Valeurs | entre 0 et 1. Hors limites : ramenées dans l'intervalle, avec un avertissement (une fois). `NaN` : ignoré |
-| Fréquence maximale | de 1 à 30 envois par seconde (hors limites : corrigée avec un avertissement) |
-| Texte | 128 caractères max (coupé au-delà) |
-| Taille d'un message | 512 octets max (nombres et texte), 8 Ko pour une table |
-| Table | 64 rangées x 16 colonnes max, tout en texte |
-
-### Les deux modes
-
-* `SendMode::Event` : un message n'est envoyé que lorsqu'une valeur **change**, sans dépasser la fréquence
-  maximale. Si la valeur change plusieurs fois entre deux envois, c'est la dernière qui part.
-  Aucun message n'est envoyé tant qu'aucune valeur n'a changé : utilisez `trigger()` pour envoyer l'état de départ.
-* `SendMode::Continuous` : un message à la fréquence demandée, même si rien ne change.
-
-Hors connexion au broker, le mode `Continuous` saute les envois (comptés dans `df`, voir plus bas) ;
-le mode `Event` garde la dernière valeur et l'envoie à la reconnexion.
-
-### Format des messages envoyés
-
-```json
-{"v":1,"ts":1760000000123,"seq":42,"val":[0.5,0.2,1],"f":"float","label":["r","g","b"]}
-{"v":1,"ts":1760000000123,"seq":7,"val":"bonjour","f":"string"}
-{"v":1,"ts":1760000000123,"seq":4,"val":[["a","0.1","on"],["b","0.5","off"]],"f":"table"}
-```
-
-| Champ | Sens |
-|---|---|
-| `v` | version du format (1) |
-| `ts` | horodatage en millisecondes (voir ci-dessous) |
-| `seq` | compteur qui augmente à chaque message de ce topic (repart à 0 au redémarrage) |
-| `val` | liste de nombres (0 à 1), texte, ou liste de rangées de textes (table) |
-| `f` | `"float"`, `"string"` ou `"table"` |
-| `label` | pour `float` seulement : la clé de chaque valeur, dans le même ordre que `val` (une table n'a pas de `label`) |
-
-**À propos de `ts`** : la carte se synchronise par NTP (`pool.ntp.org` par défaut) dès qu'elle a le réseau.
-Tant que ce n'est pas fait, `ts` contient le nombre de millisecondes depuis le démarrage.
-Un réseau sans accès à Internet : `Saillance.setNtpServer("adresse")` (avant `begin`).
-
----
-
-## 7. Recevoir
+### …recevoir des nombres
 
 ```cpp
 Input niveau;
+niveau = CexiiMqtt.input(topic);                 // dans setup()
 
-niveau = Saillance.input(topic);                     // lire quand on veut
-float v = niveau.get("niv");                         // valeur de la clé "niv", 0.0 si rien reçu
+float v = niveau.get("niv");                     // dans loop() : dernière valeur reçue (0 si rien)
+if (niveau.isNew()) { /* un nouveau message vient d'arriver */ }
+```
+→ exemple **05_Recevoir_nombres**. Le nom (`"niv"`) doit être le même que chez celui qui envoie.
 
-Saillance.input(topic, [](const Message& m) {        // ou être appelé à chaque message
-  Serial.println(m.get("niv"));
+### …recevoir du texte ou une table
+
+Le plus simple : une **fonction appelée automatiquement** à chaque message.
+
+```cpp
+CexiiMqtt.input(topic, [](const Message& m) {      // dans setup()
+  if (m.isText)  Serial.println(m.text);           // du texte
+  if (m.isTable) Serial.println(m.cell(0, 1));     // une table : la case rangée 0, colonne 1
 });
 ```
+→ exemples **06_Recevoir_texte** et **07_Recevoir_table**.
+Pour un message de **nombres**, parcourez-les ainsi :
+`for (uint8_t i = 0; i < m.count; i++) Serial.println(m.value(i));`
 
-Ce que l'on peut faire avec un `Input` ou un `Message` :
+### …tout faire à la fois
 
-| Appel | Résultat |
-|---|---|
-| `in.hasData()` | au moins un message reçu ? |
-| `in.isNew()` | un message est arrivé depuis le dernier appel ? |
-| `in.get("clé", défaut)` | valeur d'une clé |
-| `in.value(i)` | valeur à la position `i` |
-| `in.isText()` / `in.text()` | le message est du texte / son contenu |
-| `in.message()` | le message entier |
-| `m.count`, `m.key(i)`, `m.value(i)`, `m.has("clé")` | parcourir toutes les valeurs d'un `Message` |
-| `m.ts`, `m.seq` | horodatage et compteur de l'expéditeur |
-| `in.isTable()` / `m.isTable` | le message est une table ? |
-| `in.rowCount()`, `in.colCount(y)` | nombre de rangées / de colonnes de la rangée `y` |
-| `in.cell(y, x)`, `in.cellFloat(y, x, défaut)` | la case `val[y][x]` en texte (`""` si elle n'existe pas) / lue comme un nombre |
+→ exemple **08_Tous_les_formats** (envoie les 3 formats et reçoit les 3).
 
-* Vos fonctions sont toujours appelées depuis `Saillance.update()`, donc dans `loop()`.
-* Les valeurs reçues hors de 0 à 1 sont ramenées dans l'intervalle.
-* Une table reçue est refusée si elle dépasse 64 rangées, 16 colonnes ou 8 Ko. Les cases numériques
-  (`0.5` au lieu de `"0.5"`) sont acceptées et converties en texte.
-* L'abonnement se fait au topic exact (pas de `#` ni `+`) et se refait tout seul après une reconnexion.
-* Un appareil abonné à un topic sur lequel il envoie aussi reçoit ses propres messages.
-
----
-
-## 8. Messages automatiques (rien à faire)
-
-| Topic | Quand | Contenu |
-|---|---|---|
-| `saillance/sys/<username>/infos` | toutes les 5 s (et dès la connexion) | `v ts seq app fps fpsmin msmax df cpu ram gpu gpumem ac performModeL lat rc` |
-| `saillance/sys/<username>/ping` | toutes les 60 s | `v ts seq` (sert à mesurer `lat`) |
-| `saillance/sys/<username>/error` | à chaque erreur | `v ts seq src msg sv t` |
-
-### `infos`
-
-Même format que celui des autres appareils Saillance (par exemple le patch TouchDesigner). `-1` veut dire
-« non disponible » ; le champ `app` est vide si on ne l'a pas renseigné.
-
-```json
-{"v":1,"ts":1792101066169,"seq":42,"app":"","fps":59.8,"fpsmin":41.2,"msmax":24.3,"df":3,"cpu":18,"ram":61,"gpu":-1,"gpumem":-1,"ac":1,"performModeL":1,"lat":4,"rc":0}
-```
-
-| Champ | Sens | Sur un ESP32 |
-|---|---|---|
-| `app` | nom du programme, version comprise | vide, ou ce que vous donnez à `Saillance.setAppName("controlbouton_v1.2")` |
-| `fps` | images par seconde, moyenne des 5 s | tours de `loop()` par seconde |
-| `fpsmin` | fps de l'image la plus lente des 5 s (1000 / `msmax`) | idem |
-| `msmax` | durée en ms de l'image la plus longue des 5 s | durée du tour de `loop()` le plus long |
-| `df` | images perdues pendant les 5 s | envois manqués (hors connexion, ou échec d'envoi) |
-| `cpu` | % du processeur, moyenne depuis le dernier info | moyenne des deux cœurs |
-| `ram` | % de mémoire vive utilisée | mémoire (tas) utilisée |
-| `gpu`, `gpumem` | carte graphique | toujours `-1` (pas de GPU) |
-| `ac` | 1 = branché sur le secteur | toujours `1` |
-| `performModeL` | 1 = Perform Mode | toujours `1` |
-| `lat` | aller-retour jusqu'au serveur en ms, mesuré par le ping précédent | voir `ping` ci-dessous ; `-1` tant qu'aucun ping n'est revenu |
-| `rc` | reconnexions au broker depuis le démarrage | 0 à la première connexion |
-
-L'image la plus lente (`msmax`) inclut tout ce que fait votre `loop()` : un `delay(100)` donnera `msmax` ≈ 100.
-
-### `ping`
-
-Toutes les 60 s (et dès la connexion), la carte s'envoie une enveloppe seule sur
-`saillance/sys/<username>/ping` ; elle est abonnée à ce topic et reçoit donc le message en retour du broker :
-
-```json
-{"v":1,"ts":1792101066169,"seq":42}
-```
-
-La latence (`lat` de `infos`) est le temps entre l'envoi et le retour du message, en millisecondes. Elle est
-mesurée avec l'horloge interne de la carte, donc sans dépendre du NTP. Si le ping ne revient pas avant le
-suivant, `lat` repasse à `-1`. Le compte EMQX de l'appareil doit donc pouvoir publier **et** s'abonner à
-`saillance/sys/<username>/#`.
-
-### `error`
-
-Erreurs capturées automatiquement :
-
-* tout `ESP_LOGE` / `log_e` du système (WiFi, MQTT, mémoire…) ;
-* perte du WiFi ou du câble Ethernet, refus du broker ;
-* mémoire presque épuisée (moins de 20 000 octets libres) ;
-* erreurs d'utilisation de la bibliothèque (nom, topic, clé, valeur invalides) ;
-* la cause du redémarrage précédent : plantage, watchdog, baisse de tension. Un plantage ne peut pas être
-  envoyé sur le coup, il est donc signalé au démarrage suivant.
-
-Une erreur qui se répète à l'identique n'est envoyée qu'une fois toutes les 5 s. Les erreurs survenues
-sans connexion au broker sont envoyées à la reconnexion (jusqu'à 10 en attente).
-
-Vos propres erreurs :
+### …savoir si je suis connecté, ou signaler une erreur
 
 ```cpp
-Saillance.reportError("capteur", "lecture impossible");                       // gravité Erreur
-Saillance.reportError("capteur", "valeur douteuse", Severity::Warning);
+if (CexiiMqtt.connected()) { /* connecté au serveur */ }
+CexiiMqtt.reportError("capteur", "lecture impossible");      // envoyée sur le topic /error
 ```
-
-| `sv` (gravité) | Sens |
-|---|---|
-| 0 | `Severity::Info` |
-| 1 | `Severity::Warning` |
-| 2 | `Severity::Error` |
-| 3 | `Severity::Critical` |
-
-| `t` (code) | Sens |
-|---|---|
-| 100 | erreur du système capturée dans les logs |
-| 101 | redémarrage anormal |
-| 102 | mémoire basse |
-| 200 | lien WiFi / Ethernet perdu |
-| 201 | démarrage du réseau impossible |
-| 300 | connexion refusée par le broker |
-| 301 | autre erreur MQTT |
-| 400 – 405 | erreur d'utilisation : nom, topic, clé, valeur, configuration, message reçu illisible |
-| 900 | erreur envoyée par votre programme |
+→ exemple **10_Etat_et_erreurs**.
 
 ---
 
-## 9. En cas de problème
+## 5. Les limites
 
-| Symptôme | Piste |
+| Quoi | Limite |
 |---|---|
-| `nom d'appareil ... invalide` | lettres et chiffres seulement, 24 max |
-| `topic invalide` ou `module/composante/propriete ... invalide` | 12 caractères max, lettres/chiffres/`_`/`-` |
-| `cle ... inconnue` | la clé n'a pas été déclarée dans la liste de `floatOut` |
-| Rien après « connexion à… » | mauvais ssid / mot de passe WiFi |
-| Ethernet : rien ne se passe | câble branché ? bonne carte (`Esp32Poe` / `Esp32PoeIso`) ? |
-| `broker injoignable` | l'ESP32 n'est pas sur le même réseau que `10.0.21.210`, ou le port 8083 est bloqué |
-| `connexion refusee par le broker` | username / mot de passe refusé par EMQX |
-| Aucune donnée n'est envoyée | `Saillance.update()` oublié dans `loop()`, ou mode `Event` sans changement de valeur |
-| Caractères illisibles dans le moniteur série | vitesse différente de 115200 |
-| `table trop grosse` | la table dépasse 8 Ko : moins de rangées ou de texte |
-| `lat` reste à `-1` | le ping ne revient pas : EMQX doit autoriser l'abonnement à `saillance/sys/<username>/ping` |
-| `FloatOut non valide` | la création a échoué : lisez le message juste au-dessus |
+| Nom de l'appareil | 24 caractères, lettres et chiffres seulement |
+| Module, composante, propriété | 12 caractères chacun |
+| Clé d'une valeur | 6 caractères |
+| Valeurs par topic (nombres) | 16 |
+| Valeur d'un nombre | entre 0.0 et 1.0 (sinon ramenée dans l'intervalle) |
+| Cadence d'envoi | 1 à 30 par seconde |
+| Texte | 128 caractères |
+| Table | 64 rangées, 16 colonnes, 8 Ko par message |
 
-Pour voir ce que reçoit le broker, un client comme [MQTTX](https://mqttx.app) connecté en WebSocket
-à `ws://10.0.21.210:8083/mqtt` et abonné à `saillance/#` suffit.
+Un nom, un topic ou une clé qui ne respecte pas ces règles est **refusé avec un message clair** dans le
+moniteur série.
 
 ---
 
-## 10. Configuration (pour les mainteneurs)
+## 6. Ce que la carte envoie toute seule
 
-Tout se règle dans `src/SaillanceConfig.h` :
+Sans rien écrire dans votre programme, la carte envoie sur le serveur :
 
-| Réglage | Rôle |
+| Topic | Quand | Pour quoi faire |
+|---|---|---|
+| `saillance/sys/<appareil>/infos` | toutes les 5 secondes | savoir si la carte va bien (vitesse, mémoire, charge…) |
+| `saillance/sys/<appareil>/error` | quand il y a une erreur | savoir pourquoi quelque chose a planté |
+| `saillance/sys/<appareil>/ping` | toutes les 60 secondes | mesurer la vitesse de la connexion (champ `lat`) |
+
+`<appareil>` est le nom complet, par exemple `esp32_monappareil` ou `esp32poeiso_controlbouton`
+(type de carte + « _ » + le nom que vous avez choisi).
+
+Le détail de chaque champ est dans [docs/REFERENCE.md](docs/REFERENCE.md#messages-automatiques).
+
+---
+
+## 7. Les exemples
+
+Dans l'Arduino IDE : **Fichier > Exemples > CeXii MQTT**. Chaque exemple commence par quelques lignes
+« À MODIFIER » (nom de l'appareil, WiFi) et explique comment le tester.
+
+| Exemple | Ce qu'il fait |
 |---|---|
-| `SAILLANCE_BROKER_HOST`, `_PORT`, `_PATH` | adresse du broker (`/mqtt` est le chemin WebSocket par défaut d'EMQX) |
-| `SAILLANCE_TOPIC_LEADING_SLASH` | `1` : `/saillance/...`, `0` : `saillance/...` (défaut) |
-| `SAILLANCE_ZONES` | liste des zones |
-| `SAILLANCE_NAME_MAX`, `_SEGMENT_MAX`, `_KEY_MAX`, `_MAX_HZ`… | les limites |
-| `SAILLANCE_INFOS_PERIOD_MS`, `SAILLANCE_PING_PERIOD_MS` | périodes de `infos` et de `ping` |
-| `SAILLANCE_TABLE_MAX_ROWS`, `_COLS`, `_BYTES` | limites d'une table |
+| `01_Envoyer_nombres` | envoie 3 nombres qui changent |
+| `02_Envoyer_capteur` | envoie la valeur d'un potentiomètre, seulement quand elle change |
+| `03_Envoyer_texte` | envoie un texte chaque seconde |
+| `04_Envoyer_table` | envoie une table dont certaines cases changent |
+| `05_Recevoir_nombres` | allume une LED selon une valeur reçue |
+| `06_Recevoir_texte` | affiche chaque texte reçu |
+| `07_Recevoir_table` | affiche chaque table reçue |
+| `08_Tous_les_formats` | envoie et reçoit les trois formats |
+| `09_Ethernet_PoE` | envoie l'état d'un bouton par câble réseau |
+| `10_Etat_et_erreurs` | connexion, nom de l'application, erreur personnalisée |
 
-**Ajouter une zone** : une ligne dans `SAILLANCE_ZONES` :
+---
 
-```cpp
-#define SAILLANCE_ZONES(X)         \
-  X(Jam, "jam")                    \
-  X(Ecrans, "ecrans")              \
-  X(Globale, "globale")            \
-  X(Regie, "regie")                \
-  X(Salle, "salle")                 // ← ajoutée, utilisable avec Zone::Salle
-```
+## 8. Ça ne marche pas ?
 
-Le texte doit respecter les règles des textes libres (12 caractères max, lettres/chiffres/`_`/`-`).
-Attention : toutes les lignes sauf la dernière finissent par `\`.
+Regardez d'abord le **moniteur série (115200)** : la bibliothèque y explique les problèmes.
 
-**Tests** (logique pure, sans carte) : `pio test -e native`
-
-**Fichiers**
-
-| Fichier | Contenu |
+| Ce que vous voyez | Ce que ça veut dire |
 |---|---|
-| `src/Saillance.h` | l'interface publique |
-| `src/SaillanceCore.*` | validation, topics, JSON, cadence d'envoi (testé sur ordinateur) |
-| `src/SaillanceNet.cpp` | WiFi / Ethernet |
-| `src/SaillanceMqtt.cpp` | client MQTT (esp-mqtt) |
-| `src/SaillanceSystem.cpp` | messages `error` et `infos`, capture des erreurs, mesure du CPU |
+| `nom d'appareil ... invalide` | lettres et chiffres seulement, 24 caractères maximum |
+| `module/composante/propriete ... invalide` | 12 caractères max, lettres/chiffres/`_`/`-`, pas d'espace |
+| `cle ... inconnue` | cette clé n'est pas dans la liste donnée à `floatOut` |
+| Rien après `WiFi : connexion a ...` | nom ou mot de passe du WiFi incorrect |
+| `Ethernet debranche` | vérifiez le câble, et le type de carte choisi |
+| `broker injoignable` | la carte n'est pas sur le même réseau que `10.0.21.210` |
+| `connexion refusee par le broker` | le serveur refuse ce nom d'appareil |
+| `FloatOut non valide` (ou TextOut/TableOut) | la création a échoué : lisez le message juste au-dessus |
+| `message illisible sur ...` | le message reçu n'a pas le bon format |
+| Des caractères bizarres | la vitesse du moniteur série n'est pas 115200 |
+| Connecté, mais rien n'est envoyé | `CexiiMqtt.update()` manque dans `loop()`, ou le mode est `Event` et rien ne change |
+| Je ne reçois rien | le topic doit être **exactement** le même, lettre pour lettre, chez l'envoyeur |
+
+---
+
+## Pour aller plus loin
+
+* [docs/REFERENCE.md](docs/REFERENCE.md) : toutes les fonctions, le format exact des messages, les champs
+  de `infos`, les codes d'erreur, la configuration (ajouter une zone, changer l'adresse du serveur).

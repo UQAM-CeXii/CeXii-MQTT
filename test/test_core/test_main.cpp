@@ -4,9 +4,9 @@
 #include <string>
 #include <vector>
 
-#include "../../src/SaillanceCore.cpp"
+#include "../../src/CexiiMqttCore.cpp"
 
-using namespace saillance;
+using namespace cexii;
 
 static std::vector<std::string> g_issues;
 static void hook(Severity, ErrorCode, const char* src, const char* msg) {
@@ -96,7 +96,7 @@ void test_float_payload() {
   TEST_ASSERT_FALSE(c.addKey("r"));  // doublon
   c.set("r", 0.5f);
   c.set("g", 1.0f);
-  char buf[SAILLANCE_PAYLOAD_MAX];
+  char buf[CEXII_PAYLOAD_MAX];
   size_t n = c.build(buf, sizeof(buf), 1700000000123ULL);
   TEST_ASSERT_TRUE(n > 0);
   TEST_ASSERT_EQUAL_STRING(
@@ -122,7 +122,7 @@ void test_text_payload() {
   TextChannel c;
   c.configure(makeTopic(Zone::Jam, "a", "b", "c"), 5, SendMode::Event);
   c.set("say \"hi\"\n");
-  char buf[SAILLANCE_PAYLOAD_MAX];
+  char buf[CEXII_PAYLOAD_MAX];
   TEST_ASSERT_TRUE(c.build(buf, sizeof(buf), 42) > 0);
   TEST_ASSERT_EQUAL_STRING("{\"v\":1,\"ts\":42,\"seq\":0,\"val\":\"say \\\"hi\\\"\\u000a\",\"f\":\"string\"}", buf);
 }
@@ -212,7 +212,7 @@ void test_roundtrip() {
   c.addKey("sat");
   c.set("hue", 0.123f);
   c.set("sat", 0.9f);
-  char buf[SAILLANCE_PAYLOAD_MAX];
+  char buf[CEXII_PAYLOAD_MAX];
   size_t n = c.build(buf, sizeof(buf), 99);
   Message m;
   TEST_ASSERT_TRUE(parseMessage(buf, n, m));
@@ -222,7 +222,7 @@ void test_roundtrip() {
 
 // --- système ----------------------------------------------------------------
 void test_sys_payloads() {
-  char buf[SAILLANCE_PAYLOAD_MAX];
+  char buf[CEXII_PAYLOAD_MAX];
   buildErrorPayload(buf, sizeof(buf), 10, 3, "wifi", "lien perdu", Severity::Warning, ErrorCode::NetLinkLost);
   TEST_ASSERT_EQUAL_STRING("{\"v\":1,\"ts\":10,\"seq\":3,\"src\":\"wifi\",\"msg\":\"lien perdu\",\"sv\":1,\"t\":200}", buf);
   InfosData d;
@@ -255,7 +255,7 @@ void test_table_payload() {
   TEST_ASSERT_TRUE(c.setCell(1, 0, "b"));
   TEST_ASSERT_TRUE(c.setCell(1, 1, "0.5"));
   TEST_ASSERT_TRUE(c.setCell(1, 2, "off"));
-  char buf[SAILLANCE_TABLE_MAX_BYTES + 1];
+  char buf[CEXII_TABLE_MAX_BYTES + 1];
   size_t n = c.build(buf, sizeof(buf), 1792101066169ULL);
   TEST_ASSERT_TRUE(n > 0);
   TEST_ASSERT_EQUAL_STRING(
@@ -285,7 +285,7 @@ void test_table_size_limit() {
   std::string big(200, 'x');
   for (int y = 0; y < 64; y++)
     for (int x = 0; x < 3; x++) c.setCell(y, x, big.c_str());  // ~38 Ko
-  char buf[SAILLANCE_TABLE_MAX_BYTES + 1];
+  char buf[CEXII_TABLE_MAX_BYTES + 1];
   TEST_ASSERT_EQUAL(0, c.build(buf, sizeof(buf), 1));
   TEST_ASSERT_EQUAL(0, c.seq);
 }
@@ -335,7 +335,7 @@ void test_table_roundtrip() {
   TableChannel c;
   c.configure(makeTopic(Zone::Jam, "a", "b", "c"), 10, SendMode::Event);
   c.setCell(2, 1, "say \"hi\"");
-  char buf[SAILLANCE_TABLE_MAX_BYTES + 1];
+  char buf[CEXII_TABLE_MAX_BYTES + 1];
   size_t n = c.build(buf, sizeof(buf), 5);
   Message m;
   TEST_ASSERT_TRUE(parseMessage(buf, n, m));

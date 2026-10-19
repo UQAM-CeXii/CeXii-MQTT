@@ -1,5 +1,5 @@
 // Messages système automatiques : /error (sur événement) et /infos (toutes les 5 s).
-#include "Saillance.h"
+#include "CexiiMqtt.h"
 
 #include <esp_freertos_hooks.h>
 #include <esp_log.h>
@@ -7,7 +7,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
-namespace saillance {
+namespace cexii {
 
 // --- Mesure de charge CPU ----------------------------------------------------
 // Chaque coeur compte combien de fois sa tâche "idle" (repos) tourne. Moins elle
@@ -25,11 +25,11 @@ static uint32_t fnv1a(const char* a, const char* b) {
   return h;
 }
 
-void SaillanceClass::startSystem_() {
-  setIssueHook(&SaillanceClass::onIssue_);
+void CexiiMqttClass::startSystem_() {
+  setIssueHook(&CexiiMqttClass::onIssue_);
 
   // 1) Capture de toutes les erreurs du système (ESP_LOGE, log_e, WiFi, MQTT, ...)
-  s_prevVprintf = esp_log_set_vprintf(&SaillanceClass::logHook_);
+  s_prevVprintf = esp_log_set_vprintf(&CexiiMqttClass::logHook_);
 
   // 2) Mesure du CPU : calibrage pendant 100 ms de repos
   esp_register_freertos_idle_hook_for_cpu(idleHook0, 0);
@@ -65,8 +65,8 @@ void SaillanceClass::startSystem_() {
 
 // Intercepte chaque ligne de log ; si c'est une erreur ("E (123) tag: message"),
 // on la met en file d'attente. L'envoi se fait plus tard, dans update().
-int SaillanceClass::logHook_(const char* fmt, va_list args) {
-  SaillanceClass& s = Saillance;
+int CexiiMqttClass::logHook_(const char* fmt, va_list args) {
+  CexiiMqttClass& s = CexiiMqtt;
   if (s.errorQueue_ && !xPortInIsrContext()) {
     va_list copy;
     va_copy(copy, args);
@@ -107,14 +107,14 @@ int SaillanceClass::logHook_(const char* fmt, va_list args) {
   return s_prevVprintf ? s_prevVprintf(fmt, args) : vprintf(fmt, args);
 }
 
-void SaillanceClass::onIssue_(Severity sv, ErrorCode code, const char* src, const char* msg) {
-  Saillance.reportError(src, msg, sv, code);
+void CexiiMqttClass::onIssue_(Severity sv, ErrorCode code, const char* src, const char* msg) {
+  CexiiMqtt.reportError(src, msg, sv, code);
 }
 
-void SaillanceClass::reportError(const char* source, const char* message, Severity sv, ErrorCode code) {
+void CexiiMqttClass::reportError(const char* source, const char* message, Severity sv, ErrorCode code) {
   if (debug_) {
     static const char* const names[] = {"info", "attention", "ERREUR", "CRITIQUE"};
-    Serial.printf("[Saillance] %s (%s) : %s\n", names[(uint8_t)sv & 3], source ? source : "?", message ? message : "");
+    Serial.printf("[CeXii MQTT] %s (%s) : %s\n", names[(uint8_t)sv & 3], source ? source : "?", message ? message : "");
   }
   if (!errorQueue_) return;
   ErrorItem it;
@@ -127,7 +127,7 @@ void SaillanceClass::reportError(const char* source, const char* message, Severi
   xQueueSend((QueueHandle_t)errorQueue_, &it, 0);  // file pleine : on abandonne ce message
 }
 
-void SaillanceClass::publishErrors_() {
+void CexiiMqttClass::publishErrors_() {
   if (!mqttConnected_ || !errorQueue_) return;
   for (int i = 0; i < 3; i++) {
     ErrorItem it;
@@ -148,7 +148,7 @@ void SaillanceClass::publishErrors_() {
   }
 }
 
-float SaillanceClass::sampleCpu_() {
+float CexiiMqttClass::sampleCpu_() {
   uint32_t now = millis();
   uint32_t dt = now - lastCpuMs_;
   if (dt == 0) dt = 1;
@@ -166,8 +166,8 @@ float SaillanceClass::sampleCpu_() {
   return cores ? busy / cores * 100.0f : 0.0f;
 }
 
-void SaillanceClass::publishInfos_(uint32_t now) {
-  if (!infosDue_ && (uint32_t)(now - lastInfosMs_) < SAILLANCE_INFOS_PERIOD_MS) return;
+void CexiiMqttClass::publishInfos_(uint32_t now) {
+  if (!infosDue_ && (uint32_t)(now - lastInfosMs_) < CEXII_INFOS_PERIOD_MS) return;
 
   uint32_t elapsed = now - lastInfosMs_;
   if (elapsed == 0) elapsed = 1;
@@ -194,7 +194,7 @@ void SaillanceClass::publishInfos_(uint32_t now) {
   maxGapUs_ = 0;
   gapCount_ = 0;
 
-  if (ESP.getFreeHeap() < SAILLANCE_LOW_HEAP_BYTES && (lowHeapMs_ == 0 || now - lowHeapMs_ > 60000)) {
+  if (ESP.getFreeHeap() < CEXII_LOW_HEAP_BYTES && (lowHeapMs_ == 0 || now - lowHeapMs_ > 60000)) {
     lowHeapMs_ = now ? now : 1;
     char msg[48];
     snprintf(msg, sizeof(msg), "memoire basse : %u octets libres", (unsigned)ESP.getFreeHeap());
@@ -215,7 +215,7 @@ void SaillanceClass::publishInfos_(uint32_t now) {
 
 // Ping : on s'envoie un message sur /ping ; le broker nous le renvoie (on y est abonné).
 // Latence = heure de retour - heure d'envoi, mesurée avec l'horloge locale (indépendante du NTP).
-void SaillanceClass::publishPing_(uint32_t now) {
+void CexiiMqttClass::publishPing_(uint32_t now) {
   if (!mqttConnected_ || !pingSubscribed_) return;
 
   if (pingReply_) {
@@ -227,7 +227,7 @@ void SaillanceClass::publishPing_(uint32_t now) {
     }
   }
 
-  if (pingEverSent_ && (uint32_t)(now - lastPingMs_) < SAILLANCE_PING_PERIOD_MS) return;
+  if (pingEverSent_ && (uint32_t)(now - lastPingMs_) < CEXII_PING_PERIOD_MS) return;
 
   if (pingAwaiting_) {  // le ping précédent n'est jamais revenu
     latMs_ = -1;
@@ -246,4 +246,4 @@ void SaillanceClass::publishPing_(uint32_t now) {
   }
 }
 
-}  // namespace saillance
+}  // namespace cexii

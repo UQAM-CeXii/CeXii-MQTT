@@ -1,4 +1,4 @@
-#include "SaillanceCore.h"
+#include "CexiiMqttCore.h"
 
 #include <ArduinoJson.h>
 #include <ctype.h>
@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-namespace saillance {
+namespace cexii {
 
 // ============================================================================
 //  Signalement
@@ -42,9 +42,9 @@ static Check checkChars(const char* s, size_t maxLen, bool allowUnderscore, bool
   return Check::Ok;
 }
 
-Check checkDeviceName(const char* s) { return checkChars(s, SAILLANCE_NAME_MAX, false, false); }
-Check checkSegment(const char* s) { return checkChars(s, SAILLANCE_SEGMENT_MAX, true, true); }
-Check checkKey(const char* s) { return checkChars(s, SAILLANCE_KEY_MAX, true, false); }
+Check checkDeviceName(const char* s) { return checkChars(s, CEXII_NAME_MAX, false, false); }
+Check checkSegment(const char* s) { return checkChars(s, CEXII_SEGMENT_MAX, true, true); }
+Check checkKey(const char* s) { return checkChars(s, CEXII_KEY_MAX, true, false); }
 
 const char* checkText(Check c) {
   switch (c) {
@@ -73,9 +73,9 @@ bool boardHasEthernet(Board b) { return b != Board::Esp32; }
 
 const char* zoneName(Zone z) {
   static const char* const names[] = {
-#define SAILLANCE_X(id, text) text,
-      SAILLANCE_ZONES(SAILLANCE_X)
-#undef SAILLANCE_X
+#define CEXII_X(id, text) text,
+      CEXII_ZONES(CEXII_X)
+#undef CEXII_X
   };
   return (uint8_t)z < (uint8_t)Zone::Count_ ? names[(uint8_t)z] : "";
 }
@@ -91,16 +91,16 @@ bool buildUsername(Board b, const char* deviceName, char* out, size_t cap) {
   if (c != Check::Ok) {
     reportIssue(Severity::Error, ErrorCode::ApiBadName, "begin",
                 "nom d'appareil \"%s\" invalide : %s (max %d, lettres et chiffres seulement)",
-                deviceName ? deviceName : "", checkText(c), SAILLANCE_NAME_MAX);
+                deviceName ? deviceName : "", checkText(c), CEXII_NAME_MAX);
     return false;
   }
-  char lower[SAILLANCE_NAME_MAX + 1];
+  char lower[CEXII_NAME_MAX + 1];
   lowerCopy(lower, deviceName, sizeof(lower));
   int n = snprintf(out, cap, "%s_%s", boardPrefix(b), lower);
   return n > 0 && (size_t)n < cap;
 }
 
-static const char* rootPrefix() { return SAILLANCE_TOPIC_LEADING_SLASH ? "/" SAILLANCE_PROJECT : SAILLANCE_PROJECT; }
+static const char* rootPrefix() { return CEXII_TOPIC_LEADING_SLASH ? "/" CEXII_PROJECT : CEXII_PROJECT; }
 
 bool buildSysTopic(const char* username, const char* leaf, char* out, size_t cap) {
   int n = snprintf(out, cap, "%s/sys/%s/%s", rootPrefix(), username, leaf);
@@ -113,10 +113,10 @@ static bool takeSegment(const char* what, const char* in, char* dst) {
   if (c != Check::Ok) {
     reportIssue(Severity::Error, ErrorCode::ApiBadTopic, "topic",
                 "%s \"%s\" invalide : %s (max %d, lettres/chiffres/_/-)", what, in ? in : "",
-                checkText(c), SAILLANCE_SEGMENT_MAX);
+                checkText(c), CEXII_SEGMENT_MAX);
     return false;
   }
-  lowerCopy(dst, in, SAILLANCE_SEGMENT_MAX + 1);
+  lowerCopy(dst, in, CEXII_SEGMENT_MAX + 1);
   return true;
 }
 
@@ -130,7 +130,7 @@ static bool zoneOk(Zone z) {
 
 Topic makeTopic(Zone zone, const char* module, const char* component, const char* property) {
   Topic t;
-  char m[SAILLANCE_SEGMENT_MAX + 1], c[SAILLANCE_SEGMENT_MAX + 1], p[SAILLANCE_SEGMENT_MAX + 1];
+  char m[CEXII_SEGMENT_MAX + 1], c[CEXII_SEGMENT_MAX + 1], p[CEXII_SEGMENT_MAX + 1];
   if (!zoneOk(zone) || !takeSegment("module", module, m) || !takeSegment("composante", component, c) ||
       !takeSegment("propriete", property, p))
     return t;
@@ -271,10 +271,10 @@ static float clamp01(float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); 
 // {"val":[["a","0.1"],["b","0.5"]],"f":"table"}  -> max 64 rangées x 16 colonnes
 static bool parseTable(JsonVariantConst val, Message& out) {
   JsonArrayConst rows = val.as<JsonArrayConst>();
-  if (rows.isNull() || rows.size() > SAILLANCE_TABLE_MAX_ROWS) return false;
+  if (rows.isNull() || rows.size() > CEXII_TABLE_MAX_ROWS) return false;
   for (JsonVariantConst r : rows) {
     JsonArrayConst row = r.as<JsonArrayConst>();
-    if (row.isNull() || row.size() > SAILLANCE_TABLE_MAX_COLS) return false;
+    if (row.isNull() || row.size() > CEXII_TABLE_MAX_COLS) return false;
     std::vector<std::string> cells;
     for (JsonVariantConst c : row) {
       if (c.is<const char*>()) {
@@ -311,8 +311,8 @@ bool parseMessage(const char* payload, size_t len, Message& out) {
   if (text) {
     if (!val.is<const char*>()) return false;
     out.isText = true;
-    strncpy(out.text, val.as<const char*>(), SAILLANCE_TEXT_MAX);
-    out.text[SAILLANCE_TEXT_MAX] = '\0';
+    strncpy(out.text, val.as<const char*>(), CEXII_TEXT_MAX);
+    out.text[CEXII_TEXT_MAX] = '\0';
     return true;
   }
 
@@ -328,13 +328,13 @@ bool parseMessage(const char* payload, size_t len, Message& out) {
   JsonArrayConst labels = doc["label"].as<JsonArrayConst>();
   uint8_t n = 0;
   for (JsonVariantConst v : arr) {
-    if (n >= SAILLANCE_MAX_KEYS) break;
+    if (n >= CEXII_MAX_KEYS) break;
     if (!v.is<float>()) return false;
     out.values[n] = clamp01(v.as<float>());
     const char* lab = labels[n] | (const char*)nullptr;
     if (lab && lab[0]) {
-      strncpy(out.keys[n], lab, SAILLANCE_KEY_MAX);
-      out.keys[n][SAILLANCE_KEY_MAX] = '\0';
+      strncpy(out.keys[n], lab, CEXII_KEY_MAX);
+      out.keys[n][CEXII_KEY_MAX] = '\0';
     } else {
       snprintf(out.keys[n], sizeof(out.keys[n]), "%u", (unsigned)n);
     }
@@ -350,11 +350,11 @@ bool parseMessage(const char* payload, size_t len, Message& out) {
 void OutChannel::configure(const Topic& t, uint8_t maxHz, SendMode m) {
   topic = t;
   mode = m;
-  if (maxHz < SAILLANCE_MIN_HZ || maxHz > SAILLANCE_MAX_HZ) {
-    uint8_t fixed = maxHz < SAILLANCE_MIN_HZ ? SAILLANCE_MIN_HZ : SAILLANCE_MAX_HZ;
+  if (maxHz < CEXII_MIN_HZ || maxHz > CEXII_MAX_HZ) {
+    uint8_t fixed = maxHz < CEXII_MIN_HZ ? CEXII_MIN_HZ : CEXII_MAX_HZ;
     reportIssue(Severity::Warning, ErrorCode::ApiBadConfig, "output",
                 "frequence %u Hz hors limites (%d a %d) -> %u Hz", (unsigned)maxHz,
-                SAILLANCE_MIN_HZ, SAILLANCE_MAX_HZ, (unsigned)fixed);
+                CEXII_MIN_HZ, CEXII_MAX_HZ, (unsigned)fixed);
     maxHz = fixed;
   }
   this->maxHz = maxHz;
@@ -381,7 +381,7 @@ bool FloatChannel::addKey(const char* key) {
   if (c != Check::Ok) {
     reportIssue(Severity::Error, ErrorCode::ApiBadKey, "output",
                 "cle \"%s\" invalide : %s (max %d, lettres/chiffres/_)", key ? key : "",
-                checkText(c), SAILLANCE_KEY_MAX);
+                checkText(c), CEXII_KEY_MAX);
     return false;
   }
   for (uint8_t i = 0; i < count; i++) {
@@ -390,9 +390,9 @@ bool FloatChannel::addKey(const char* key) {
       return false;
     }
   }
-  if (count >= SAILLANCE_MAX_KEYS) {
+  if (count >= CEXII_MAX_KEYS) {
     reportIssue(Severity::Error, ErrorCode::ApiBadKey, "output", "trop de cles (max %d)",
-                SAILLANCE_MAX_KEYS);
+                CEXII_MAX_KEYS);
     return false;
   }
   strcpy(keys[count], key);
@@ -443,7 +443,7 @@ void FloatChannel::set(const char* key, float v) {
 size_t FloatChannel::build(char* buf, size_t cap, uint64_t ts) {
   JsonWriter w(buf, cap);
   w.beginObject();
-  w.key("v"); w.i32(SAILLANCE_FORMAT_VERSION);
+  w.key("v"); w.i32(CEXII_FORMAT_VERSION);
   w.key("ts"); w.u64(ts);
   w.key("seq"); w.u64(seq);
   w.key("val");
@@ -463,14 +463,14 @@ size_t FloatChannel::build(char* buf, size_t cap, uint64_t ts) {
 
 void TextChannel::set(const char* s) {
   if (!s) s = "";
-  if (strlen(s) > SAILLANCE_TEXT_MAX && !warnedLen) {
+  if (strlen(s) > CEXII_TEXT_MAX && !warnedLen) {
     warnedLen = true;
     reportIssue(Severity::Warning, ErrorCode::ApiBadValue, "output",
-                "texte trop long (max %d), coupe", SAILLANCE_TEXT_MAX);
+                "texte trop long (max %d), coupe", CEXII_TEXT_MAX);
   }
-  if (strncmp(text, s, SAILLANCE_TEXT_MAX) != 0) {
-    strncpy(text, s, SAILLANCE_TEXT_MAX);
-    text[SAILLANCE_TEXT_MAX] = '\0';
+  if (strncmp(text, s, CEXII_TEXT_MAX) != 0) {
+    strncpy(text, s, CEXII_TEXT_MAX);
+    text[CEXII_TEXT_MAX] = '\0';
     dirty = true;
   }
 }
@@ -478,7 +478,7 @@ void TextChannel::set(const char* s) {
 size_t TextChannel::build(char* buf, size_t cap, uint64_t ts) {
   JsonWriter w(buf, cap);
   w.beginObject();
-  w.key("v"); w.i32(SAILLANCE_FORMAT_VERSION);
+  w.key("v"); w.i32(CEXII_FORMAT_VERSION);
   w.key("ts"); w.u64(ts);
   w.key("seq"); w.u64(seq);
   w.key("val"); w.str(text);
@@ -496,12 +496,12 @@ void TableChannel::clear() {
 
 bool TableChannel::setCell(uint16_t y, uint16_t x, const char* text) {
   if (!text) text = "";
-  if (y >= SAILLANCE_TABLE_MAX_ROWS || x >= SAILLANCE_TABLE_MAX_COLS) {
+  if (y >= CEXII_TABLE_MAX_ROWS || x >= CEXII_TABLE_MAX_COLS) {
     if (!warnedLimit) {
       warnedLimit = true;
       reportIssue(Severity::Warning, ErrorCode::ApiBadValue, "table",
                   "case (%u,%u) hors limites (max %d rangees x %d colonnes)", (unsigned)y, (unsigned)x,
-                  SAILLANCE_TABLE_MAX_ROWS, SAILLANCE_TABLE_MAX_COLS);
+                  CEXII_TABLE_MAX_ROWS, CEXII_TABLE_MAX_COLS);
     }
     return false;
   }
@@ -522,12 +522,12 @@ bool TableChannel::setCell(uint16_t y, uint16_t x, const char* text) {
 }
 
 bool TableChannel::addRow(const char* const* cells, size_t n) {
-  if (rows.size() >= SAILLANCE_TABLE_MAX_ROWS || n > SAILLANCE_TABLE_MAX_COLS) {
+  if (rows.size() >= CEXII_TABLE_MAX_ROWS || n > CEXII_TABLE_MAX_COLS) {
     if (!warnedLimit) {
       warnedLimit = true;
       reportIssue(Severity::Warning, ErrorCode::ApiBadValue, "table",
-                  "rangee refusee (max %d rangees x %d colonnes)", SAILLANCE_TABLE_MAX_ROWS,
-                  SAILLANCE_TABLE_MAX_COLS);
+                  "rangee refusee (max %d rangees x %d colonnes)", CEXII_TABLE_MAX_ROWS,
+                  CEXII_TABLE_MAX_COLS);
     }
     return false;
   }
@@ -541,7 +541,7 @@ bool TableChannel::addRow(const char* const* cells, size_t n) {
 size_t TableChannel::build(char* buf, size_t cap, uint64_t ts) {
   JsonWriter w(buf, cap);
   w.beginObject();
-  w.key("v"); w.i32(SAILLANCE_FORMAT_VERSION);
+  w.key("v"); w.i32(CEXII_FORMAT_VERSION);
   w.key("ts"); w.u64(ts);
   w.key("seq"); w.u64(seq);
   w.key("val");
@@ -573,7 +573,7 @@ size_t buildErrorPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, const
                          const char* msg, Severity sv, ErrorCode code) {
   JsonWriter w(buf, cap);
   w.beginObject();
-  w.key("v"); w.i32(SAILLANCE_FORMAT_VERSION);
+  w.key("v"); w.i32(CEXII_FORMAT_VERSION);
   w.key("ts"); w.u64(ts);
   w.key("seq"); w.u64(seq);
   w.key("src"); w.str(src);
@@ -587,7 +587,7 @@ size_t buildErrorPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, const
 size_t buildInfosPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, const InfosData& d) {
   JsonWriter w(buf, cap);
   w.beginObject();
-  w.key("v"); w.i32(SAILLANCE_FORMAT_VERSION);
+  w.key("v"); w.i32(CEXII_FORMAT_VERSION);
   w.key("ts"); w.u64(ts);
   w.key("seq"); w.u64(seq);
   w.key("app"); w.str(d.app ? d.app : "");
@@ -611,11 +611,11 @@ size_t buildInfosPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq, const
 size_t buildPingPayload(char* buf, size_t cap, uint64_t ts, uint32_t seq) {
   JsonWriter w(buf, cap);
   w.beginObject();
-  w.key("v"); w.i32(SAILLANCE_FORMAT_VERSION);
+  w.key("v"); w.i32(CEXII_FORMAT_VERSION);
   w.key("ts"); w.u64(ts);
   w.key("seq"); w.u64(seq);
   w.endObject();
   return w.finish();
 }
 
-}  // namespace saillance
+}  // namespace cexii
