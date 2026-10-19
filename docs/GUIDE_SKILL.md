@@ -38,17 +38,10 @@ besoin : ça garde la conversation légère.
 
 Il suffit que le dossier soit à l'un de ces deux endroits :
 
-| Où | Pour qui | Commande |
-|---|---|---|
-| `~/.claude/skills/cexii-mqtt/` | vous, dans tous vos projets | voir ci-dessous |
+| Où                                          | Pour qui                           | Commande        |
+| ------------------------------------------- | ---------------------------------- | --------------- |
+| `~/.claude/skills/cexii-mqtt/`              | vous, dans tous vos projets        | voir ci-dessous |
 | `<votre projet>/.claude/skills/cexii-mqtt/` | toute personne qui ouvre ce projet | voir ci-dessous |
-
-Pour vous (la **copie** garde le skill figé ; le **lien** le met à jour tout seul quand vous faites un `git pull`) :
-
-```bash
-mkdir -p ~/.claude/skills
-ln -s /Users/gabpelland/Developpeur/Github/saillance-mqtt/skill/cexii-mqtt ~/.claude/skills/cexii-mqtt
-```
 
 Pour un projet (le dossier est alors versionné avec le projet) :
 
@@ -76,6 +69,7 @@ Ouvrez une conversation et demandez, sans nommer le skill :
 > « Écris-moi un sketch pour une ESP32-POE-ISO qui envoie la valeur d'un potentiomètre au serveur. »
 
 Vous devriez voir que Claude :
+
 - utilise `#include <CexiiMqtt.h>` et l'objet `CexiiMqtt` ;
 - appelle `beginEthernet(Board::Esp32PoeIso, ...)` avec un nom en lettres et chiffres ;
 - construit un topic de la forme `saillance/<zone>/…` avec une zone de la liste (`Jam`, `Ecrans`, `Globale`, `Regie`) ;
@@ -83,6 +77,7 @@ Vous devriez voir que Claude :
 - vous dit comment vérifier le résultat dans MQTTX.
 
 Autres demandes qui devraient le déclencher :
+
 - « Mon ESP32 reçoit un texte mais rien ne s'affiche dans le moniteur série. »
 - « Comment j'envoie une table de 3 colonnes à TouchDesigner ? »
 - « Pourquoi je ne reçois pas les messages infos de ma carte ? »
@@ -116,9 +111,10 @@ Un fichier `.skill` ne se met pas à jour tout seul : redonnez-le à chaque nouv
 
 Pour une diffusion plus large, un dépôt GitHub peut servir de « marketplace » de plugins. Il faut y ajouter
 deux fichiers (le format exact évolue : confirmez-le dans la documentation officielle de Claude Code,
-chapitre *Plugins*).
+chapitre _Plugins_).
 
 `.claude-plugin/plugin.json` :
+
 ```json
 {
   "name": "cexii-mqtt",
@@ -128,12 +124,17 @@ chapitre *Plugins*).
 ```
 
 `.claude-plugin/marketplace.json` :
+
 ```json
 {
   "name": "cexii",
   "owner": { "name": "CeXii" },
   "plugins": [
-    { "name": "cexii-mqtt", "source": "./", "description": "Skill CeXii MQTT pour ESP32" }
+    {
+      "name": "cexii-mqtt",
+      "source": "./",
+      "description": "Skill CeXii MQTT pour ESP32"
+    }
   ]
 }
 ```
@@ -159,13 +160,13 @@ vérifiez auprès de l'administration.
 Le skill contient une **copie** des règles de la bibliothèque. S'il n'est pas mis à jour, Claude donnera des
 conseils périmés (une zone qui n'existe plus, une limite qui a changé).
 
-| Si vous changez… | Mettez à jour… |
-|---|---|
-| la liste des zones (`CEXII_ZONES`) | `SKILL.md` (tableau des règles), `scripts/check_names.py` (`DEFAULT_ZONES`), `docs/REFERENCE.md` |
-| une limite (24, 12, 6, 30 Hz, 64×16, 8 Ko) | `SKILL.md`, `references/api.md`, `scripts/check_names.py`, README |
-| un nom de fonction ou son comportement | `references/api.md` et les gabarits de `references/examples.md` |
-| un champ de `infos`, un code d'erreur | `references/messages.md` |
-| l'adresse du serveur ou les règles EMQX | `SKILL.md` (« Les faits à connaître »), `references/troubleshooting.md` |
+| Si vous changez…                           | Mettez à jour…                                                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| la liste des zones (`CEXII_ZONES`)         | `SKILL.md` (tableau des règles), `scripts/check_names.py` (`DEFAULT_ZONES`), `docs/REFERENCE.md` |
+| une limite (24, 12, 6, 30 Hz, 64×16, 8 Ko) | `SKILL.md`, `references/api.md`, `scripts/check_names.py`, README                                |
+| un nom de fonction ou son comportement     | `references/api.md` et les gabarits de `references/examples.md`                                  |
+| un champ de `infos`, un code d'erreur      | `references/messages.md`                                                                         |
+| l'adresse du serveur ou les règles EMQX    | `SKILL.md` (« Les faits à connaître »), `references/troubleshooting.md`                          |
 
 Après une modification des exemples du skill, vérifiez qu'ils compilent toujours : chaque bloc `cpp` de
 `references/examples.md` doit rester un sketch complet (copiez-le dans un projet PlatformIO et lancez `pio run`).
@@ -176,12 +177,13 @@ Ensuite : recréez le `.skill` (section 3B) et redonnez-le, ou faites un `git pu
 
 ## 5. Publier la bibliothèque elle-même
 
-Le skill aide à *utiliser* la bibliothèque ; ceci explique comment la *mettre à disposition*.
+Le skill aide à _utiliser_ la bibliothèque ; ceci explique comment la _mettre à disposition_.
 
 **Sans registre (le plus simple)** : mettre le dépôt sur GitHub. Les personnes l'installent avec le zip dans
 l'Arduino IDE, ou avec `lib_deps = https://github.com/VOTRE-COMPTE/cexii-mqtt.git` dans PlatformIO.
 
 **Gestionnaire de bibliothèques de l'Arduino IDE** (public) :
+
 1. Dépôt GitHub **public** avec `library.properties` à la racine (adresse `url=` à corriger) et un fichier `LICENSE`.
 2. Vérifier : `arduino-lint --library-manager submit`.
 3. Créer une release GitHub dont le tag est identique à `version=` (`0.1.0`).
@@ -198,14 +200,14 @@ structure des topics. Pour un outil interne, la diffusion par GitHub privé ou p
 
 ## 6. Ça ne marche pas ?
 
-| Problème | Piste |
-|---|---|
-| Claude n'a pas l'air de connaître la bibliothèque | le dossier doit s'appeler exactement `cexii-mqtt`, contenir `SKILL.md`, et être dans `~/.claude/skills/` ou `.claude/skills/` ; ouvrez une **nouvelle** session |
-| Claude Code ne voit pas le skill après un lien `ln -s` | vérifiez la cible du lien : `ls ~/.claude/skills/cexii-mqtt/SKILL.md` doit afficher le fichier |
-| Le téléversement dans Claude.ai est refusé | le zip doit avoir le dossier `cexii-mqtt/` à sa racine, avec `SKILL.md` dedans (pas un dossier de plus) |
-| Claude écrit `Saillance.update()` | il utilise une ancienne version du skill : remplacez-la, la bibliothèque s'appelle maintenant `CexiiMqtt` |
-| Claude propose une zone inexistante | le skill n'est pas à jour avec `CEXII_ZONES` : voir la section 4 |
-| Le script `check_names.py` ne démarre pas | il faut Python 3 (`python3 --version`) |
+| Problème                                               | Piste                                                                                                                                                           |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude n'a pas l'air de connaître la bibliothèque      | le dossier doit s'appeler exactement `cexii-mqtt`, contenir `SKILL.md`, et être dans `~/.claude/skills/` ou `.claude/skills/` ; ouvrez une **nouvelle** session |
+| Claude Code ne voit pas le skill après un lien `ln -s` | vérifiez la cible du lien : `ls ~/.claude/skills/cexii-mqtt/SKILL.md` doit afficher le fichier                                                                  |
+| Le téléversement dans Claude.ai est refusé             | le zip doit avoir le dossier `cexii-mqtt/` à sa racine, avec `SKILL.md` dedans (pas un dossier de plus)                                                         |
+| Claude écrit `Saillance.update()`                      | il utilise une ancienne version du skill : remplacez-la, la bibliothèque s'appelle maintenant `CexiiMqtt`                                                       |
+| Claude propose une zone inexistante                    | le skill n'est pas à jour avec `CEXII_ZONES` : voir la section 4                                                                                                |
+| Le script `check_names.py` ne démarre pas              | il faut Python 3 (`python3 --version`)                                                                                                                          |
 
 Pour tester le script à la main :
 
