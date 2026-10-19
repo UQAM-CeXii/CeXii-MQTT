@@ -322,5 +322,7 @@ Regardez d'abord le **moniteur série (115200)** : la bibliothèque y explique l
 
 * [docs/GUIDE_SKILL.md](docs/GUIDE_SKILL.md) : utiliser Claude (skill « cexii-mqtt ») pour écrire et dépanner
   vos programmes avec cette bibliothèque.
+* [docs/COMMENT_CA_MARCHE.md](docs/COMMENT_CA_MARCHE.md) : pour les curieux, comment la bibliothèque fonctionne
+  vraiment et comment elle a été programmée (couches, envoi, réception, messages automatiques, choix de conception).
 * [docs/REFERENCE.md](docs/REFERENCE.md) : toutes les fonctions, le format exact des messages, les champs
   de `infos`, les codes d'erreur, la configuration (ajouter une zone, changer l'adresse du serveur).
