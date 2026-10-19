@@ -1,8 +1,8 @@
 // ============================================================================
 //  Exemple 09 : ETHERNET FILAIRE (cartes Olimex ESP32-POE / ESP32-POE-ISO)
 //
-//  Même chose que le WiFi, mais avec un câble réseau : pas de nom de réseau
-//  ni de mot de passe. Un bouton envoie 1.0 quand on l'enfonce, 0.0 quand on le relâche.
+//  Comme l'exemple 01 (câble réseau, pas de WiFi), mais avec un bouton.
+//  Le bouton envoie 1.0 quand on l'enfonce, 0.0 quand on le relâche.
 //
 //  Dans l'Arduino IDE : Outils > Type de carte > "OLIMEX ESP32-POE-ISO"
 //  (ou "OLIMEX ESP32-POE" -> alors utilisez Board::Esp32Poe plus bas).

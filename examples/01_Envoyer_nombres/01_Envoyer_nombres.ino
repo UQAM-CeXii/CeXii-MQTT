@@ -1,16 +1,21 @@
 // ============================================================================
-//  Exemple 01 : ENVOYER DES NOMBRES
+//  Exemple 01 : ENVOYER DES NOMBRES (ESP32 PoE branchée en Ethernet)
 //
 //  Envoie 3 valeurs (r, g, b) qui changent, 20 fois par seconde.
+//
+//  Matériel : carte Olimex ESP32-POE-ISO (ou ESP32-POE) + câble réseau.
+//  Dans l'Arduino IDE : Outils > Type de carte > "OLIMEX ESP32-POE-ISO"
+//
 //  Pour voir le résultat, dans MQTTX abonnez-vous à :
 //      saillance/globale/lumiere/bande1/couleur
+//
+//  Pas de câble ? Remplacez la ligne "beginEthernet" par la version WiFi :
+//      CexiiMqtt.beginWifi(Board::Esp32, NOM_APPAREIL, "NomDuWifi", "MotDePasse");
 // ============================================================================
 #include <CexiiMqtt.h>
 
 // ---- À MODIFIER ------------------------------------------------------------
-const char* NOM_APPAREIL      = "exemple01";   // lettres et chiffres, 24 max
-const char* WIFI_NOM          = "NomDuWifi";
-const char* WIFI_MOT_DE_PASSE = "MotDePasse";
+const char* NOM_APPAREIL = "exemple01";  // lettres et chiffres, 24 max
 // ----------------------------------------------------------------------------
 
 FloatOut couleur;  // notre "tuyau" d'envoi de nombres
@@ -18,8 +23,9 @@ FloatOut couleur;  // notre "tuyau" d'envoi de nombres
 void setup() {
   Serial.begin(115200);
 
-  // 1) Démarrer : type de carte, nom de l'appareil, WiFi
-  CexiiMqtt.beginWifi(Board::Esp32, NOM_APPAREIL, WIFI_NOM, WIFI_MOT_DE_PASSE);
+  // 1) Démarrer : type de carte et nom de l'appareil (le câble suffit, pas de WiFi)
+  //    Le username sera "esp32poeiso_exemple01". Carte sans "ISO" : Board::Esp32Poe
+  CexiiMqtt.beginEthernet(Board::Esp32PoeIso, NOM_APPAREIL);
 
   // 2) Choisir où envoyer : zone, module, composante, propriété
   Topic topic = CexiiMqtt.topic(Zone::Globale, "lumiere", "bande1", "couleur");

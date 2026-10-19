@@ -318,7 +318,7 @@ Tout se règle dans `src/CexiiMqttConfig.h` :
   X(Ecrans, "ecrans")              \
   X(Globale, "globale")            \
   X(Regie, "regie")                \
-  X(Salle, "salle")                 // ← ajoutée, utilisable avec Zone::Salle
+  X(Salle, "salle")                 // la nouvelle zone, utilisable avec Zone::Salle
 ```
 
 Le texte doit respecter les règles des textes libres (12 caractères max, lettres/chiffres/`_`/`-`).

@@ -29,11 +29,12 @@ messages avec le reste du système CeXii (TouchDesigner, autres cartes…), en *
 3. **Croquis > Inclure une bibliothèque > Ajouter la bibliothèque .ZIP…** → choisissez le fichier
    `CeXii_MQTT.zip`.
    *Si une ancienne version est déjà installée, supprimez d'abord son dossier (`Saillance` ou `CeXii_MQTT`) dans `Documents/Arduino/libraries/`.*
-4. **Outils > Type de carte** → **ESP32 Dev Module**
-   (ou **OLIMEX ESP32-POE** / **OLIMEX ESP32-POE-ISO** pour les cartes PoE).
+4. **Outils > Type de carte** → **OLIMEX ESP32-POE-ISO** (ou **OLIMEX ESP32-POE**).
+   Pour une carte ESP32 classique (WiFi seulement) : **ESP32 Dev Module**.
 5. **Outils > Core Debug Level** → **Error** (pour que les erreurs de la carte soient aussi signalées).
 6. Redémarrez l'Arduino IDE, puis ouvrez un exemple : **Fichier > Exemples > CeXii MQTT > 01_Envoyer_nombres**.
-7. Branchez la carte, choisissez le **Port** dans le menu Outils, puis cliquez *Téléverser* (la flèche →).
+7. Branchez la carte en USB **et le câble réseau** (Ethernet), choisissez le **Port** dans le menu Outils,
+   puis cliquez *Téléverser* (la flèche →).
 8. Ouvrez **Outils > Moniteur série** et réglez la vitesse sur **115200**.
 
 <details>
@@ -44,7 +45,7 @@ Dans le fichier `platformio.ini` de votre projet :
 ```ini
 [env:esp32]
 platform = espressif32
-board = esp32dev            ; ESP32-POE : esp32-poe     ESP32-POE-ISO : esp32-poe-iso
+board = esp32-poe-iso       ; ESP32-POE : esp32-poe     ESP32 classique : esp32dev
 framework = arduino
 monitor_speed = 115200
 build_flags = -DCORE_DEBUG_LEVEL=1
@@ -59,7 +60,8 @@ Chaque dossier de `examples/` contient aussi un `platformio.ini` prêt à l'empl
 
 ## 2. Votre premier programme
 
-Ouvrez l'exemple **01_Envoyer_nombres**. Voici l'essentiel :
+Ouvrez l'exemple **01_Envoyer_nombres**. Il est écrit pour une carte **ESP32 PoE branchée en Ethernet**
+(un câble réseau, pas de WiFi). Voici l'essentiel :
 
 ```cpp
 #include <CexiiMqtt.h>
@@ -69,27 +71,28 @@ FloatOut couleur;                       // un "tuyau" pour envoyer des nombres
 void setup() {
   Serial.begin(115200);
 
-  // ① Démarrer : type de carte, nom de votre appareil, WiFi
-  CexiiMqtt.beginWifi(Board::Esp32, "monappareil", "NomDuWifi", "MotDePasse");
+  // 1) Démarrer : type de carte et nom de votre appareil (le câble suffit)
+  CexiiMqtt.beginEthernet(Board::Esp32PoeIso, "monappareil");
 
-  // ② Choisir où envoyer : zone, module, composante, propriété
+  // 2) Choisir où envoyer : zone, module, composante, propriété
   Topic topic = CexiiMqtt.topic(Zone::Globale, "lumiere", "bande1", "couleur");
 
-  // ③ Créer l'envoi : le topic, le nom de chaque valeur, 20 envois/s max, en continu
+  // 3) Créer l'envoi : le topic, le nom de chaque valeur, 20 envois/s max, en continu
   couleur = CexiiMqtt.floatOut(topic, { "r", "g", "b" }, 20, SendMode::Continuous);
 }
 
 void loop() {
-  CexiiMqtt.update();                   // ④ OBLIGATOIRE, à chaque tour de loop()
+  CexiiMqtt.update();                   // 4) OBLIGATOIRE, à chaque tour de loop()
 
-  couleur.set("r", 0.5);                // ⑤ donner les valeurs, toujours entre 0.0 et 1.0
+  couleur.set("r", 0.5);                // 5) donner les valeurs, toujours entre 0.0 et 1.0
   couleur.set("g", 0.2);
   couleur.set("b", 1.0);
 }
 ```
 
-**À modifier avant de téléverser** : le nom du WiFi et son mot de passe. Pour le nom de l'appareil,
-choisissez des lettres et des chiffres seulement (24 au maximum), **différent pour chaque carte**.
+**À modifier avant de téléverser** : le nom de l'appareil. Choisissez des lettres et des chiffres
+seulement (24 au maximum), **différent pour chaque carte**. Avec `Board::Esp32PoeIso` et
+`"monappareil"`, le nom sur le serveur sera `esp32poeiso_monappareil`.
 
 **Les trois règles à retenir**
 1. Appelez `CexiiMqtt.update()` à **chaque** tour de `loop()`.
@@ -99,14 +102,14 @@ choisissez des lettres et des chiffres seulement (24 au maximum), **différent p
 Dans le moniteur série, vous devriez voir :
 
 ```
-[CeXii MQTT] appareil : esp32_monappareil
-[CeXii MQTT] topic erreurs : saillance/sys/esp32_monappareil/error
-[CeXii MQTT] topic infos   : saillance/sys/esp32_monappareil/infos (toutes les 5 s)
-[CeXii MQTT] topic ping    : saillance/sys/esp32_monappareil/ping (toutes les 60 s)
-[CeXii MQTT] WiFi : connexion a "NomDuWifi"...
+[CeXii MQTT] appareil : esp32poeiso_monappareil
+[CeXii MQTT] topic erreurs : saillance/sys/esp32poeiso_monappareil/error
+[CeXii MQTT] topic infos   : saillance/sys/esp32poeiso_monappareil/infos (toutes les 5 s)
+[CeXii MQTT] topic ping    : saillance/sys/esp32poeiso_monappareil/ping (toutes les 60 s)
+[CeXii MQTT] Ethernet : demarrage...
 [CeXii MQTT] envoi    -> saillance/globale/lumiere/bande1/couleur  [r,g,b]  max 20 Hz, continu
-[CeXii MQTT] WiFi connecte, IP 10.0.21.57
-[CeXii MQTT] MQTT : connexion a ws://10.0.21.210:8083/mqtt en tant que "esp32_monappareil"...
+[CeXii MQTT] Ethernet connecte, IP 10.0.21.57
+[CeXii MQTT] MQTT : connexion a ws://10.0.21.210:8083/mqtt en tant que "esp32poeiso_monappareil"...
 [CeXii MQTT] MQTT connecte
 ```
 
@@ -114,16 +117,16 @@ Quand vous voyez **MQTT connecte**, ça marche. Pour regarder les messages, inst
 gratuit [MQTTX](https://mqttx.app), connectez-le en WebSocket à `ws://10.0.21.210:8083/mqtt` et
 abonnez-vous à `saillance/#`.
 
-### Avec un câble réseau (cartes Olimex PoE)
+### Avec le WiFi (carte ESP32 classique, ou carte PoE sans câble)
 
-Remplacez la ligne ① par :
+Remplacez la ligne `beginEthernet` par :
 
 ```cpp
-CexiiMqtt.beginEthernet(Board::Esp32PoeIso, "monappareil");   // ou Board::Esp32Poe
+CexiiMqtt.beginWifi(Board::Esp32, "monappareil", "NomDuWifi", "MotDePasse");
 ```
 
-Pas de nom de WiFi ni de mot de passe : le câble suffit. Tout le reste est identique
-(voir l'exemple **09_Ethernet_PoE**).
+Le reste du programme est identique. Les autres exemples (02 à 08 et 10) utilisent le WiFi : modifiez
+simplement les lignes « À MODIFIER » au début de chacun.
 
 ---
 
@@ -281,7 +284,7 @@ Dans l'Arduino IDE : **Fichier > Exemples > CeXii MQTT**. Chaque exemple commenc
 
 | Exemple | Ce qu'il fait |
 |---|---|
-| `01_Envoyer_nombres` | envoie 3 nombres qui changent |
+| `01_Envoyer_nombres` | envoie 3 nombres qui changent (ESP32 PoE en Ethernet) |
 | `02_Envoyer_capteur` | envoie la valeur d'un potentiomètre, seulement quand elle change |
 | `03_Envoyer_texte` | envoie un texte chaque seconde |
 | `04_Envoyer_table` | envoie une table dont certaines cases changent |
@@ -289,7 +292,7 @@ Dans l'Arduino IDE : **Fichier > Exemples > CeXii MQTT**. Chaque exemple commenc
 | `06_Recevoir_texte` | affiche chaque texte reçu |
 | `07_Recevoir_table` | affiche chaque table reçue |
 | `08_Tous_les_formats` | envoie et reçoit les trois formats |
-| `09_Ethernet_PoE` | envoie l'état d'un bouton par câble réseau |
+| `09_Ethernet_PoE` | envoie l'état d'un bouton, par câble réseau |
 | `10_Etat_et_erreurs` | connexion, nom de l'application, erreur personnalisée |
 
 ---
