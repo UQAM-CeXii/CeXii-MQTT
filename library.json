@@ -78,11 +78,11 @@
       ]
     },
     {
-      "name": "09 Ethernet PoE",
-      "base": "examples/09_Ethernet_PoE",
+      "name": "09 Un bouton",
+      "base": "examples/09_Bouton",
       "files": [
         "platformio.ini",
-        "09_Ethernet_PoE.ino"
+        "09_Bouton.ino"
       ]
     },
     {
@@ -91,6 +91,14 @@
       "files": [
         "platformio.ini",
         "10_Etat_et_erreurs.ino"
+      ]
+    },
+    {
+      "name": "11 En WiFi",
+      "base": "examples/11_WiFi",
+      "files": [
+        "platformio.ini",
+        "11_WiFi.ino"
       ]
     }
   ]

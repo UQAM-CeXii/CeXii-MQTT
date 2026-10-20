@@ -1,5 +1,5 @@
 // ============================================================================
-//  Exemple 04 : ENVOYER UNE TABLE
+//  Exemple 04 : ENVOYER UNE TABLE (ESP32 PoE en Ethernet)
 //
 //  Une table = une liste de rangées, chaque rangée une liste de TEXTES
 //  (même les nombres). Maximum 64 rangées x 16 colonnes, 8 Ko.
@@ -8,47 +8,52 @@
 //      "a"         "0.00"      "off"        <- rangée 0
 //      "b"         "0.00"      "off"        <- rangée 1
 //
-//  Dans MQTTX, abonnez-vous à : saillance/ecrans/tableau/liste/contenu
+//  Matériel : carte Olimex ESP32-POE-ISO (ou ESP32-POE) + câble réseau.
+//  Dans l'Arduino IDE : Outils > Type de carte > "OLIMEX ESP32-POE-ISO"
+//
+//  Pour voir le résultat, dans MQTTX abonnez-vous à :
+//      saillance/ecrans/tableau/liste/contenu
 // ============================================================================
 #include <CexiiMqtt.h>
 
 // ---- À MODIFIER ------------------------------------------------------------
-const char* NOM_APPAREIL      = "exemple04";
-const char* WIFI_NOM          = "NomDuWifi";
-const char* WIFI_MOT_DE_PASSE = "MotDePasse";
+const char* NOM_APPAREIL = "exemple04";  // lettres et chiffres, 24 max
 // ----------------------------------------------------------------------------
 
-TableOut tableau;
+TableOut tableau;  // notre "tuyau" d'envoi de table
 unsigned long dernierChangement = 0;
 bool etat = false;
 
 void setup() {
   Serial.begin(115200);
-  CexiiMqtt.beginWifi(Board::Esp32, NOM_APPAREIL, WIFI_NOM, WIFI_MOT_DE_PASSE);
 
+  // 1) Démarrer : type de carte et nom de l'appareil (le câble suffit, pas de WiFi)
+  CexiiMqtt.beginEthernet(Board::Esp32PoeIso, NOM_APPAREIL);
+
+  // 2) Choisir où envoyer : zone, module, composante, propriété
   Topic topic = CexiiMqtt.topic(Zone::Ecrans, "tableau", "liste", "contenu");
 
-  // 5 envois/s au maximum, seulement quand une case change
+  // 3) Créer l'envoi : 5 envois par seconde au maximum, seulement quand une case change
   tableau = CexiiMqtt.tableOut(topic, 5, SendMode::Event);
 
-  // Remplir la table : addRow ajoute une rangée à la fin
+  // 4) Remplir la table de départ : addRow ajoute une rangée à la fin
   tableau.addRow({ "a", "0.00", "off" });  // rangée 0
   tableau.addRow({ "b", "0.00", "off" });  // rangée 1
 }
 
 void loop() {
-  CexiiMqtt.update();
+  CexiiMqtt.update();  // OBLIGATOIRE, à chaque tour de loop()
 
-  if (millis() - dernierChangement > 2000) {  // toutes les 2 secondes
+  // 5) Changer des cases toutes les 2 secondes : set(rangée, colonne, valeur)
+  if (millis() - dernierChangement > 2000) {
     dernierChangement = millis();
     etat = !etat;
 
-    // set(rangée, colonne, valeur) change une case
     tableau.set(0, 1, (sin(millis() / 1000.0f) + 1) / 2);  // un nombre devient du texte
     tableau.set(0, 2, etat ? "on" : "off");
     tableau.set(1, 2, etat ? "off" : "on");
 
-    // Autres outils :  tableau.clear();  vide toute la table
+    // Autres outils :  tableau.clear();   vide toute la table
     //                  tableau.trigger(); renvoie la table même sans changement
   }
 }

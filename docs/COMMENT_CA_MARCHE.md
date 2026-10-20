@@ -393,7 +393,7 @@ doublons, et la limite de 3 erreurs par tour.
 | JSON envoyé et reçu (nombres, texte, table) | idem : on fabrique un message, on le relit, on compare au caractère près | idem |
 | Cadences (événement, continu, 30 Hz) | idem : on simule 10 secondes de temps et on compte les envois | idem |
 | Limites (65 rangées, 17 colonnes, plus de 8 Ko) | idem | idem |
-| Tout le reste (réseau, MQTT, erreurs, ping) | compilation des 10 exemples pour ESP32 et ESP32-POE-ISO ; essais sur une vraie carte avec le serveur EMQX | tout compile |
+| Tout le reste (réseau, MQTT, erreurs, ping) | compilation des 11 exemples pour ESP32 et ESP32-POE-ISO ; essais sur une vraie carte avec le serveur EMQX | tout compile |
 
 Ce qui n'est **pas** testé automatiquement : tout ce qui touche à la carte réelle et au serveur. À ce jour, les
 essais sur carte ont confirmé l'envoi de nombres jusqu'au serveur et leur réception. Les messages `infos`,

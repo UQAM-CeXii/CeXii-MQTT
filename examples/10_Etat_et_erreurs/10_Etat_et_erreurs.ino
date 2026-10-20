@@ -1,10 +1,13 @@
 // ============================================================================
-//  Exemple 10 : ÉTAT DE LA CONNEXION ET ERREURS
+//  Exemple 10 : ÉTAT DE LA CONNEXION ET ERREURS (ESP32 PoE en Ethernet)
 //
-//  - CexiiMqtt.connected()  : la carte est-elle connectée au broker ?
-//  - CexiiMqtt.username()   : le nom utilisé sur le broker
-//  - CexiiMqtt.setAppName() : le nom de votre programme (apparaît dans "infos")
-//  - CexiiMqtt.reportError(): envoyer VOTRE propre erreur
+//  - CexiiMqtt.connected()   : la carte est-elle connectée au serveur ?
+//  - CexiiMqtt.username()    : le nom utilisé sur le serveur
+//  - CexiiMqtt.setAppName()  : le nom de votre programme (apparaît dans "infos")
+//  - CexiiMqtt.reportError() : envoyer VOTRE propre erreur
+//
+//  Matériel : carte Olimex ESP32-POE-ISO (ou ESP32-POE) + câble réseau.
+//  Dans l'Arduino IDE : Outils > Type de carte > "OLIMEX ESP32-POE-ISO"
 //
 //  Les erreurs vont sur : saillance/sys/<username>/error
 //  Dans MQTTX, abonnez-vous à : saillance/sys/#
@@ -13,9 +16,7 @@
 #include <CexiiMqtt.h>
 
 // ---- À MODIFIER ------------------------------------------------------------
-const char* NOM_APPAREIL      = "exemple10";
-const char* WIFI_NOM          = "NomDuWifi";
-const char* WIFI_MOT_DE_PASSE = "MotDePasse";
+const char* NOM_APPAREIL = "exemple10";  // lettres et chiffres, 24 max
 // ----------------------------------------------------------------------------
 
 unsigned long dernierAffichage = 0;
@@ -24,27 +25,30 @@ bool erreurEnvoyee = false;
 void setup() {
   Serial.begin(115200);
 
-  CexiiMqtt.setAppName("exemple10_v1.0");  // AVANT beginWifi. Apparaît dans le champ "app"
-  CexiiMqtt.beginWifi(Board::Esp32, NOM_APPAREIL, WIFI_NOM, WIFI_MOT_DE_PASSE);
+  // 1) Donner un nom à votre programme (AVANT begin). Il apparaît dans le champ "app".
+  CexiiMqtt.setAppName("exemple10_v1.0");
+
+  // 2) Démarrer : type de carte et nom de l'appareil (le câble suffit, pas de WiFi)
+  CexiiMqtt.beginEthernet(Board::Esp32PoeIso, NOM_APPAREIL);
 }
 
 void loop() {
-  CexiiMqtt.update();
+  CexiiMqtt.update();  // OBLIGATOIRE, à chaque tour de loop()
 
-  // Toutes les 5 secondes : dire où on en est
+  // 3) Toutes les 5 secondes : dire où on en est
   if (millis() - dernierAffichage > 5000) {
     dernierAffichage = millis();
     if (CexiiMqtt.connected()) {
-      Serial.printf("Connecté au broker en tant que %s\n", CexiiMqtt.username());
+      Serial.printf("Connecté au serveur en tant que %s\n", CexiiMqtt.username());
     } else {
       Serial.println("Pas encore connecté...");
     }
   }
 
-  // Après 15 secondes, envoyer une erreur de test (une seule fois)
+  // 4) Après 15 secondes, envoyer une erreur de test (une seule fois).
+  //    Arguments : qui parle, le message, la gravité (Info, Warning, Error ou Critical)
   if (!erreurEnvoyee && millis() > 15000) {
     erreurEnvoyee = true;
-    // source (qui parle), message, gravité : Info, Warning, Error ou Critical
     CexiiMqtt.reportError("capteur", "lecture impossible (test)", Severity::Warning);
   }
 }

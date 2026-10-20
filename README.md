@@ -125,8 +125,9 @@ Remplacez la ligne `beginEthernet` par :
 CexiiMqtt.beginWifi(Board::Esp32, "monappareil", "NomDuWifi", "MotDePasse");
 ```
 
-Le reste du programme est identique. Les autres exemples (02 à 08 et 10) utilisent le WiFi : modifiez
-simplement les lignes « À MODIFIER » au début de chacun.
+Le reste du programme est identique. Tous les exemples sont écrits pour le câble réseau ; l'exemple
+**11_WiFi** montre la version WiFi. Pour passer n'importe quel autre exemple en WiFi, remplacez sa ligne
+`beginEthernet` comme ci-dessus et ajoutez le nom et le mot de passe du réseau.
 
 ---
 
@@ -279,8 +280,10 @@ Le détail de chaque champ est dans [docs/REFERENCE.md](docs/REFERENCE.md#messag
 
 ## 7. Les exemples
 
-Dans l'Arduino IDE : **Fichier > Exemples > CeXii MQTT**. Chaque exemple commence par quelques lignes
-« À MODIFIER » (nom de l'appareil, WiFi) et explique comment le tester.
+Dans l'Arduino IDE : **Fichier > Exemples > CeXii MQTT**. Tous les exemples utilisent une carte **ESP32 PoE
+branchée en Ethernet** (sauf le 11, en WiFi). Chacun commence par quelques lignes « À MODIFIER », explique
+comment le tester, et son code est découpé en étapes numérotées : 1) démarrer, 2) choisir le topic, 3) créer
+l'envoi ou la réception, puis les étapes de `loop()`.
 
 | Exemple | Ce qu'il fait |
 |---|---|
@@ -292,8 +295,9 @@ Dans l'Arduino IDE : **Fichier > Exemples > CeXii MQTT**. Chaque exemple commenc
 | `06_Recevoir_texte` | affiche chaque texte reçu |
 | `07_Recevoir_table` | affiche chaque table reçue |
 | `08_Tous_les_formats` | envoie et reçoit les trois formats |
-| `09_Ethernet_PoE` | envoie l'état d'un bouton, par câble réseau |
+| `09_Bouton` | envoie l'état du bouton de la carte (1 enfoncé, 0 relâché) |
 | `10_Etat_et_erreurs` | connexion, nom de l'application, erreur personnalisée |
+| `11_WiFi` | **le seul en WiFi** : comme l'exemple 01, pour une ESP32 classique |
 
 ---
 

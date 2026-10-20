@@ -26,8 +26,9 @@ des commentaires clairs en français, des exemples qui marchent tels quels.
    En continu ou seulement quand ça change ?
 2. **Choisir les noms** et les valider avec `scripts/check_names.py` (nom d'appareil, topic, clés) : les règles
    ci-dessous sont strictes et la bibliothèque refuse ce qui ne les respecte pas.
-3. **Écrire le sketch** à partir des gabarits de `references/examples.md`. Garder la structure en
-   « À MODIFIER » (nom d'appareil, WiFi) en haut du fichier, `CexiiMqtt.update()` en premier dans `loop()`.
+3. **Écrire le sketch** à partir des gabarits de `references/examples.md` (les 11 exemples de la bibliothèque).
+   Garder leur style : en-tête, zone « À MODIFIER » en haut, code en étapes numérotées `// 1) … // 2) …`,
+   `CexiiMqtt.update()` en premier dans `loop()`. Ethernet par défaut, WiFi seulement si nécessaire.
 4. **Dire comment tester** : dans MQTTX (`ws://10.0.21.210:8083/mqtt`), s'abonner au topic, et pour la
    réception donner le JSON à publier (voir `references/messages.md`).
 5. Si ça ne marche pas, passer par `references/troubleshooting.md`.
